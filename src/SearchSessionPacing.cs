@@ -36,7 +36,7 @@ namespace PlaylistFlac
                 {
                     int code = ex.HResult & 0xffff;
                     if (code != 32 && code != 33) throw;
-                    if (!announced && log != null) log("Another Playlist FLAC download session is active. Waiting for its search budget.");
+                    if (!announced && log != null) log("Another FLAC-Downloader download session is active. Waiting for its search budget.");
                     announced = true;
                     if (ct.WaitHandle.WaitOne(200)) ct.ThrowIfCancellationRequested();
                 }

@@ -126,7 +126,7 @@ namespace PlaylistFlac
                 manifest.AppendLine(String.Join(",", new[] { move.Key, to, move.Value }.Select(IndexStore.Quote)));
             }
             File.WriteAllText(Path.Combine(backup, "duplicate-map.csv"), manifest.ToString(), new UTF8Encoding(false));
-            File.WriteAllText(Path.Combine(backup, "READ ME.txt"), "Duplicate files were moved here, not deleted. duplicate-map.csv records each original path and the retained copy. The original index and playback playlist are backed up here. Stop Playlist FLAC before restoring files or metadata. Kept paths in the map describe this cleanup; later filename changes have their own .naming-backup recovery maps.\r\n");
+            File.WriteAllText(Path.Combine(backup, "READ ME.txt"), "Duplicate files were moved here, not deleted. duplicate-map.csv records each original path and the retained copy. The original index and playback playlist are backed up here. Stop FLAC-Downloader before restoring files or metadata. Kept paths in the map describe this cleanup; later filename changes have their own .naming-backup recovery maps.\r\n");
             bool indexSaved = false, playlistSaved = false;
             try
             {

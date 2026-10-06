@@ -23,8 +23,8 @@ namespace PlaylistFlac
             Application.SetCompatibleTextRenderingDefault(false);
             if (args.Length == 2 && args[0] == "--restore-artwork")
             {
-                try { FlacArtwork.RestoreMetadata(args[1],CancellationToken.None); MessageBox.Show("Original artwork metadata restored.","Playlist FLAC"); }
-                catch(Exception ex) { Environment.ExitCode=1; MessageBox.Show("Artwork recovery stopped: "+ex.Message,"Playlist FLAC"); }
+                try { FlacArtwork.RestoreMetadata(args[1],CancellationToken.None); MessageBox.Show("Original artwork metadata restored.","FLAC-Downloader"); }
+                catch(Exception ex) { Environment.ExitCode=1; MessageBox.Show("Artwork recovery stopped: "+ex.Message,"FLAC-Downloader"); }
                 return;
             }
             if (args.Length > 0 && args[0] == "--self-test")
@@ -168,7 +168,7 @@ namespace PlaylistFlac
         public MainForm()
         {
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "Playlist FLAC 1.11"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.11"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -210,10 +210,10 @@ namespace PlaylistFlac
             parallel8.Left=137;parallel20.Left=187;parallel32.Left=237;parallel32.Width=50;
             connect.Width=158;
             var help=side.Controls.OfType<Button>().First(c=>c.Text=="Setup help");help.Left=190;help.Width=104;help.Text="Help";
-            header.Controls.OfType<Label>().First(c=>c.Text=="PLAYLIST / FLAC").Text="PLAYLIST FLAC";
+            header.Controls.OfType<Label>().First(c=>c.Text=="PLAYLIST / FLAC").Text="FLAC-DOWNLOADER";
             var title=header.Controls.OfType<Label>().First(c=>c.Font.Size>20);title.Text="Your music, beautifully organized.";title.Font=new Font("Segoe UI",20,FontStyle.Bold);
             var subtitle=header.Controls.OfType<Label>().First(c=>c.Text.StartsWith("Import a tracklist"));subtitle.Text="Playlists and albums · Lossless audio · Artwork and smart filenames";
-            var brand=header.Controls.OfType<Label>().First(c=>c.Text=="PLAYLIST FLAC");brand.SetBounds(0,0,160,20);
+            var brand=header.Controls.OfType<Label>().First(c=>c.Text=="FLAC-DOWNLOADER");brand.SetBounds(0,0,160,20);
             title.SetBounds(0,20,800,36);subtitle.SetBounds(0,56,850,20);
             var badge=header.Controls.OfType<Label>().First(c=>c.Text.StartsWith("FLAC ONLY"));badge.Text="LOSSLESS / FLAC";
             var importLabel=importPanel.Controls.OfType<Label>().Single();importLabel.Text="ADD MUSIC   •   Paste a Spotify link or drop a CSV";
@@ -411,7 +411,7 @@ namespace PlaylistFlac
             if (logLines.Count > 160) logLines.RemoveRange(0, logLines.Count - 160);
             activity.Text = String.Join(Environment.NewLine, logLines); activity.SelectionStart = activity.TextLength; activity.ScrollToCaret();
         }
-        private void ShowError(string message) { Log(message); status.Text = "Needs attention"; MessageBox.Show(this, message, "Playlist FLAC", MessageBoxButtons.OK, MessageBoxIcon.Information); }
+        private void ShowError(string message) { Log(message); status.Text = "Needs attention"; MessageBox.Show(this, message, "FLAC-Downloader", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         private void ShowHelp()
         {
             using (var d = new Form { Text = "Connect Spotify", Size = new Size(665, 545), StartPosition = FormStartPosition.CenterParent, BackColor = Background, ForeColor = Color.White, Font = Font, MinimizeBox = false, MaximizeBox = false, FormBorderStyle = FormBorderStyle.FixedDialog })

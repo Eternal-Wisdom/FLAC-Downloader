@@ -590,9 +590,9 @@ namespace PlaylistFlac
                         catch (ObjectDisposedException) { ct.ThrowIfCancellationRequested(); continue; }
                         string code, error;
                         bool accepted = ParseCallbackRequest(request, expectedState, out code, out error);
-                        string text = accepted && String.IsNullOrEmpty(error) ? "Spotify sign-in received. You can close this tab and return to Playlist FLAC." :
-                            accepted ? "Spotify sign-in was declined. Return to Playlist FLAC to try again." : "This callback was not accepted. Return to the Spotify sign-in tab.";
-                        byte[] page = Encoding.UTF8.GetBytes("<!doctype html><html><head><meta charset=\"utf-8\"><title>Playlist FLAC</title></head><body><p>" + text + "</p></body></html>");
+                        string text = accepted && String.IsNullOrEmpty(error) ? "Spotify sign-in received. You can close this tab and return to FLAC-Downloader." :
+                            accepted ? "Spotify sign-in was declined. Return to FLAC-Downloader to try again." : "This callback was not accepted. Return to the Spotify sign-in tab.";
+                        byte[] page = Encoding.UTF8.GetBytes("<!doctype html><html><head><meta charset=\"utf-8\"><title>FLAC-Downloader</title></head><body><p>" + text + "</p></body></html>");
                         byte[] header = Encoding.ASCII.GetBytes("HTTP/1.1 " + (accepted ? "200 OK" : "400 Bad Request") + "\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'\r\nConnection: close\r\nContent-Length: " + page.Length + "\r\n\r\n");
                         try
                         {
