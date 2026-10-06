@@ -1,0 +1,15 @@
+/build/
+/dist/
+/engine/
+/state/
+/Music/
+*.exe
+*.pdb
+*.user
+*.suo
+*.conf
+settings.json
+*test-results.txt
+*artwork-performance.txt
+.update-backup-*/
+.playlist-flac*/
