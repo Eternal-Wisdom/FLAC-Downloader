@@ -1,0 +1,22 @@
+name: Windows build and tests
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned engine and app
+        shell: powershell
+        run: ./scripts/Build.ps1
+      - name: Offline regression suite
+        shell: powershell
+        run: ./scripts/Test.ps1
+      - name: Package clean portable release
+        shell: powershell
+        run: ./scripts/Package.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flac-downloader-windows-x64
+          path: dist/*
