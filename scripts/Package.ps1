@@ -13,7 +13,7 @@ Copy-Item -LiteralPath (Join-Path $build 'engine') -Destination $app -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $app -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $app
 Copy-Item -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md'),(Join-Path $root 'AI-DISCLOSURE.md') -Destination $app
-$guide="FLAC-Downloader $version`r`nMADE USING AI - Created with extensive OpenAI Codex assistance.`r`n`r`nExtract this entire folder and open FLAC-Downloader.exe.`r`nEnter your own Soulseek account, import a CSV or configure Spotify, choose where music goes, then Download FLAC.`r`nSee docs/QUICKSTART.md for help. Full source and release instructions are in the accompanying source ZIP.`r`nPrivate settings are created in state/ on first use; no credentials or music are bundled.`r`n"
+$guide="FLAC-Downloader $version`r`nMADE USING AI - Created with extensive OpenAI Codex assistance.`r`n`r`nExtract this entire folder and open FLAC-Downloader.exe.`r`nEnter your own Soulseek account, import a CSV or configure Spotify, choose where music goes, then Download FLAC.`r`nNew to Soulseek? Read docs/SOULSEEK-ACCOUNT.md to create a network account.`r`nSee docs/QUICKSTART.md for help. Full source and release instructions are in the accompanying source ZIP.`r`nPrivate settings are created in state/ on first use; no credentials or music are bundled.`r`n"
 [IO.File]::WriteAllText((Join-Path $app 'START HERE.txt'),$guide)
 $portable=Join-Path $dist "flac-downloader-$version-windows-x64.zip"
 Compress-Archive -LiteralPath $app -DestinationPath $portable -Force
