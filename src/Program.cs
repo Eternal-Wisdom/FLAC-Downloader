@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -313,7 +313,7 @@ namespace PlaylistFlac
             Controls.Add(side);
             LabelAt(side, "02  CONNECT & CHOOSE", 22, 18, 300, 25, 10, Muted, true);
             LabelAt(side, "Soulseek account", 22, 56, 300, 28, 15, Color.White, true);
-            var accountHelp = ButtonAt(side, "How to create a Soulseek account", 22, 91, 298, false);
+            var accountHelp = ButtonAt(side, "Soulseek account setup", 22, 91, 298, false);
             accountHelp.Click += delegate {
                 MessageBox.Show(this,
                     "1. Get SoulseekQt from https://www.slsknet.org/news/node/1\r\n" +
