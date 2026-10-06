@@ -1,16 +1,16 @@
-# Playlist FLAC
+# FLAC-Downloader
 
 > **Made using AI.** This application was designed and implemented with extensive assistance from **OpenAI Codex**, guided by human requests and testing. AI generated much of the code, tests, documentation, and interface work. See [AI disclosure](AI-DISCLOSURE.md).
 
 A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify playlist, album, or CSV tracklist.
 
-![Playlist FLAC interface](docs/images/app.png)
+![FLAC-Downloader interface](docs/images/app.png)
 
 ## Download and use
 
-Download the Windows x64 portable ZIP from this repository's Releases page, extract the entire folder, and open **Playlist FLAC.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
+Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest/download/flac-downloader-1.11.0-windows-x64.zip) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
 
-1. Enter your own Soulseek account. If another Soulseek client is using it, disconnect that client or use a separate account.
+1. Enter your own Soulseek account. New to Soulseek? Follow the [account setup guide](docs/SOULSEEK-ACCOUNT.md). If another Soulseek client is using it, disconnect that client or use a separate account.
 2. Import a CSV, or configure your own Spotify developer Client ID and connect to load a playlist or album link.
 3. Choose a destination and quality/speed preference, then select **Download FLAC**.
 
@@ -27,13 +27,15 @@ Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, 
 - Saved unavailable tracks with retries starting after 15 minutes and backing off to six hours. Launching or closing the app does not start background downloads.
 - Resizable dark interface, status colors, action icons, and an Activity window.
 
+Formerly named Playlist FLAC. Existing settings and library metadata remain compatible.
+
 ## Clean folder layout
 
 The portable download contains only the app, engine, guide, documentation, and license. It creates `state/` for private settings and caches. Source, test results, update archives, credentials, and music are excluded from release downloads.
 
 ```text
-Playlist FLAC/
-  Playlist FLAC.exe
+FLAC-Downloader/
+  FLAC-Downloader.exe
   START HERE.txt
   LICENSE
   docs/
@@ -72,4 +74,4 @@ The app is Windows-only. Spotify API access is subject to your developer app's c
 
 ## License and credits
 
-Playlist FLAC is released under **AGPL-3.0-only**. The independently launched [Sockseek](https://github.com/fiso64/sockseek) engine has its own upstream AGPL license and source. See [third-party notices](THIRD-PARTY-NOTICES.md). Contributions are welcome; please read [CONTRIBUTING.md](CONTRIBUTING.md).
+FLAC-Downloader is released under **AGPL-3.0-only**. The independently launched [Sockseek](https://github.com/fiso64/sockseek) engine has its own upstream AGPL license and source. See [third-party notices](THIRD-PARTY-NOTICES.md). Contributions are welcome; please read [CONTRIBUTING.md](CONTRIBUTING.md).

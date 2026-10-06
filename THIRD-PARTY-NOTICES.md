@@ -10,4 +10,4 @@
 
 Sockseek's own dependencies and notices are described in its supplied source projects and package references. The binary is not modified by this app.
 
-Playlist FLAC uses the Windows .NET Framework and system Segoe UI font. Icons are drawn by this project; the interface screenshot uses synthetic song names and contains no downloaded music or album artwork.
+FLAC-Downloader uses the Windows .NET Framework and system Segoe UI font. Icons are drawn by this project; the interface screenshot uses synthetic song names and contains no downloaded music or album artwork.
