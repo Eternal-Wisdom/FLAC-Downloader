@@ -66,14 +66,14 @@ internal static class SmartTests
 
     private static void CheckAliases()
     {
-        var bilingual = new Track {Title="けっかおーらい - Kekka Orai",Artist="Kocchi no Kento",Album="Original album",DurationSeconds=172,Isrc="JP-U90-25-00397",SpotifyId="source-identity"};
-        string firstFixture = Fixture("isrc-JPU902500397.json");
+        var bilingual = new Track {Title="夜の光 - Yoru no Hikari",Artist="Example Singer",Album="Original album",DurationSeconds=172,Isrc="JP-XXX-26-00001",SpotifyId="source-identity"};
+        string firstFixture = AliasRecording("JPXXX2600001","夜の光","架空の歌手",172000);
         var aliases = AliasLookup.Parse(firstFixture,bilingual);
-        Assert(aliases.Any(t => t.Title == "けっかおーらい" && t.Artist == "こっちのけんと"), "Real ISRC fixture resolves Japanese title and native artist.");
-        Assert(aliases.Any(t => t.Title == "けっかおーらい" && t.Artist == "Kocchi no Kento"), "Real ISRC fixture retains romanized artist option.");
+        Assert(aliases.Any(t => t.Title == "夜の光" && t.Artist == "架空の歌手"), "Synthetic ISRC response resolves Japanese title and native artist.");
+        Assert(aliases.Any(t => t.Title == "夜の光" && t.Artist == "Example Singer"), "Synthetic ISRC response retains source artist option.");
         Assert(aliases.All(t => t.Album == bilingual.Album && t.DurationSeconds == bilingual.DurationSeconds && t.SpotifyId == bilingual.SpotifyId), "Aliases retain source album, exact source duration and identity.");
-        var romanized = new Track {Title="Ranshou Seimei",Artist="Orangestar",Album="SEASIDE SOLILOQUIES",DurationSeconds=277,Isrc="TCJPM2019515"};
-        Assert(AliasLookup.Parse(Fixture("isrc-TCJPM2019515.json"),romanized).Any(t => t.Title == "濫觴生命" && t.Artist == "Orangestar"), "Real second ISRC resolves native title without guessed transliteration.");
+        var romanized = new Track {Title="Ao no Umi",Artist="Example Artist",Album="Example album",DurationSeconds=277,Isrc="JPXXX2600002"};
+        Assert(AliasLookup.Parse(AliasRecording(romanized.Isrc,"青の海",romanized.Artist,277000),romanized).Any(t => t.Title == "青の海" && t.Artist == "Example Artist"), "Second synthetic ISRC resolves native title without guessed transliteration.");
         var original = new Track {Title="Original",Artist="Artist",Album="Album",DurationSeconds=180,Isrc="JPU902500397"};
         Assert(AliasLookup.Parse(Recording(185000,"JPU902500397"),original).Count > 0, "Five-second duration boundary is accepted.");
         Assert(AliasLookup.Parse(Recording(185001,"JPU902500397"),original).Count == 0, "More than five seconds is rejected.");
@@ -302,17 +302,11 @@ internal static class SmartTests
         Assert(held,"Exclusive playlist lock spans alias processing and finalization.");
     }
 
-    private static string Fixture(string name)
+    private static string AliasRecording(string isrc,string title,string artist,int length)
     {
-        string packaged=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"source",name);
-        if(File.Exists(packaged))return File.ReadAllText(packaged);
-        string directory=Directory.GetCurrentDirectory();
-        for(int n=0;n<5 && directory!=null;n++,directory=Path.GetDirectoryName(directory))
-        {
-            string path=Path.Combine(directory,"work",name);if(File.Exists(path))return File.ReadAllText(path);
-            path=Path.Combine(directory,name);if(File.Exists(path))return File.ReadAllText(path);
-        }
-        throw new FileNotFoundException("Required offline ISRC fixture is missing.",name);
+        var credit=new Dictionary<string,object> {{"name",artist},{"artist",new Dictionary<string,object> {{"name",artist},{"sort-name",artist}}}};
+        var recording=new Dictionary<string,object> {{"title",title},{"length",length},{"artist-credit",new[]{credit}}};
+        return new JavaScriptSerializer().Serialize(new {isrc=isrc,recordings=new[]{recording}});
     }
     private const string Header="filepath,artist,album,title,length,tracktype,state,failurereason\r\n";
     private static string Row(SavedTrack row) {return String.Join(",",new[]{row.Path,row.Track.Artist,row.Track.Album,row.Track.Title,IndexStore.Seconds(row.Track).ToString(CultureInfo.InvariantCulture),"0",row.State.ToString(),row.Reason.ToString()}.Select(IndexStore.Quote))+"\r\n";}
