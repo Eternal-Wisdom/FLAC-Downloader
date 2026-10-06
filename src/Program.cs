@@ -313,7 +313,17 @@ namespace PlaylistFlac
             Controls.Add(side);
             LabelAt(side, "02  CONNECT & CHOOSE", 22, 18, 300, 25, 10, Muted, true);
             LabelAt(side, "Soulseek account", 22, 56, 300, 28, 15, Color.White, true);
-            LabelAt(side, "Use a separate account if Nicotine+ is open.", 22, 91, 300, 42, 9, Muted, false);
+            var accountHelp = ButtonAt(side, "How to create a Soulseek account", 22, 91, 298, false);
+            accountHelp.Click += delegate {
+                MessageBox.Show(this,
+                    "1. Get SoulseekQt from https://www.slsknet.org/news/node/1\r\n" +
+                    "2. Open it and log in with a new username and a unique password. An unused name is registered on successful login.\r\n" +
+                    "3. If the name is taken, choose another. Website/forum logins are separate.\r\n" +
+                    "4. Disconnect SoulseekQt or Nicotine+ before using the same account here.\r\n" +
+                    "5. Enter your credentials below, import a tracklist, and start when ready.\r\n\r\n" +
+                    "The full guide is included in docs/SOULSEEK-ACCOUNT.md. Never post your password or private settings in a bug report.",
+                    "Soulseek account setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
             LabelAt(side, "Username", 22, 133, 295, 20, 9, Muted, false);
             username = TextAt(side, 22, 156, 298, false);
             LabelAt(side, "Password", 22, 193, 295, 20, 9, Muted, false);
