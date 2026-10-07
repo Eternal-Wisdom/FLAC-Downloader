@@ -3,8 +3,10 @@ $root=Split-Path -Parent $PSScriptRoot
 $build=Join-Path $root 'build'
 $exe=Join-Path $build 'FLAC-Downloader.exe'
 if(-not (Test-Path -LiteralPath $exe)){throw 'Run scripts/Build.ps1 first.'}
+$result=Join-Path $build 'test-results.txt'
+if(Test-Path -LiteralPath $result){Remove-Item -LiteralPath $result}
 $process=Start-Process -FilePath $exe -ArgumentList '--self-test' -PassThru -WindowStyle Hidden
-if(-not $process.WaitForExit(180000)){throw 'Offline tests exceeded three minutes.'}
+if(-not $process.WaitForExit(180000)){$process.Kill();throw 'Offline tests exceeded three minutes.'}
 $result=Join-Path $build 'test-results.txt'
 if(-not (Test-Path -LiteralPath $result)){throw 'Offline tests produced no result report.'}
 $report=Get-Content -LiteralPath $result -Raw
