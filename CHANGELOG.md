@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.12.0 (local candidate)
+
+- Double-click a track, press Enter, or use its context menu to inspect the selected source and matching policy. Unknown engine information remains explicitly unknown.
+- Distinguish source selection from actual byte progress.
+- Stop the child engine if a progress consumer fails; preserve the original error and remove temporary credentials.
+- Reject incomplete or malformed download indexes instead of silently dropping history.
+- Preserve active recovery data and avoid further finalization after an unexpected processing failure.
+- Keep synthetic interface previews independent of private settings and prevent preview settings writes.
+- Prevent stale test reports from passing validation; terminate timed-out test processes.
+- Record the code review and decisions on the downloader research recommendations.
+
 ## 1.11.0
 
 - Prepare a separate public source repository and minimal portable release.

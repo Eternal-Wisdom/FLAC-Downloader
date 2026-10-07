@@ -29,6 +29,8 @@ Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, 
 
 Formerly named Playlist FLAC. Existing settings and library metadata remain compatible.
 
+The local v1.12 development candidate adds track/source details and stricter failure recovery. See the [code review and recommendation decisions](docs/CODE-REVIEW.md). The release download above remains v1.11 until a new release is published.
+
 ## Clean folder layout
 
 The portable download contains only the app, engine, guide, documentation, and license. It creates `state/` for private settings and caches. Source, test results, update archives, credentials, and music are excluded from release downloads.
