@@ -19,6 +19,8 @@ namespace PlaylistFlac
         public string TrackKey { get; set; }
         public string JobId { get; set; }
         public string Peer { get; set; }
+        public string SourceFilename { get; set; }
+        public string SourceFormat { get; set; }
         public long BytesTransferred { get; set; }
         public long TotalBytes { get; set; }
         public double BytesPerSecond { get; set; }
@@ -140,7 +142,8 @@ namespace PlaylistFlac
                     Task outputReader = Task.Run(() => ReadOutput(process.StandardOutput, true));
                     Task errorReader = Task.Run(() => ReadOutput(process.StandardError, false));
                     process.WaitForExit();
-                    Task.WaitAll(outputReader, errorReader);
+                    // Preserve the original reader/callback exception for the caller.
+                    Task.WhenAll(outputReader, errorReader).GetAwaiter().GetResult();
                     if (cancellation.IsCancellationRequested || disposed)
                     {
                         EmitLog("Stopped. Completed files remain available; start again to retry unfinished tracks.");
@@ -240,16 +243,23 @@ namespace PlaylistFlac
 
         private void ReadOutput(StreamReader reader, bool parseProgress)
         {
-            string line;
-            while ((line = reader.ReadLine()) != null)
+            try
             {
-                if (parseProgress && line.StartsWith("{", StringComparison.Ordinal) && TryProgress(line)) continue;
-                EmitLog(line);
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (parseProgress && line.StartsWith("{", StringComparison.Ordinal) && TryProgress(line)) continue;
+                    EmitLog(line);
+                }
             }
+            // Otherwise a failed consumer stops draining stdout while the child
+            // keeps downloading (and can block forever on its full output pipe).
+            catch { KillActive(); throw; }
         }
 
         internal bool TryProgress(string line)
         {
+            EngineProgress progress;
             try
             {
                 var envelope = json.DeserializeObject(line) as Dictionary<string, object>;
@@ -275,7 +285,7 @@ namespace PlaylistFlac
                     EmitLog(Text(data, "artist") + " — " + Text(data, "title") + ": " + status);
                 }
                 else if (type == "search_start") status = "Searching";
-                else if (type == "download_start") status = "Queued / downloading";
+                else if (type == "download_start") status = "Source selected; waiting for bytes";
                 else if (type == "download_progress") status = "Downloading " + DecimalNumber(data, "percent").ToString("0", CultureInfo.InvariantCulture) + "%";
                 else if (type == "progress" || type == "list_progress")
                 {
@@ -287,26 +297,30 @@ namespace PlaylistFlac
                 string jobId=Text(data,"jobId");
                 if(jobId.Length==0 && Text(data,"title").Length>0)jobId="query:"+Text(data,"artist").Length+":"+Text(data,"artist")+Text(data,"title");
                 long bytes=LongNumber(data,"bytesTransferred"),size=LongNumber(data,"totalBytes");
+                if(size==0)size=LongNumber(data,"size");
                 double rate=type=="download_progress" ? telemetry.Observe(jobId,bytes,size,DateTime.UtcNow) : 0;
                 if(type=="download_progress" && rate>0)status+=" / "+TransferTelemetry.FormatRate(rate);
                 if(type=="track_state")telemetry.Finish(jobId);
                 if(type=="download_start" && Text(data,"username").Length>0)EmitLog("Source for "+Text(data,"title")+": "+Text(data,"username")+". Waiting for byte progress; source selection is handled by the engine.");
-                var progress = new EngineProgress
+                progress = new EngineProgress
                 {
                     JobId=jobId,Peer=Text(data,"username"),BytesTransferred=bytes,TotalBytes=size,BytesPerSecond=rate,
+                    SourceFilename=Text(data,"filename"),SourceFormat=Text(data,"extension"),
                     TotalBytesPerSecond=telemetry.Speed(DateTime.UtcNow),MovingTransfers=telemetry.Moving(DateTime.UtcNow),
                     Type = type, Artist = Text(data, "artist"), Title = Text(data, "title"), Status = status,
                     DownloadPath = Text(data, "downloadPath"), Completed = completed, Failed = failed, Total = total,
                     Percent = total > 0 ? Math.Min(100.0, 100.0 * (completed + failed) / total) : 0
                 };
-                var callback = Progress;
-                if (callback != null) callback(progress);
-                return true;
             }
             catch (ArgumentException) { return false; }
             catch (InvalidOperationException) { return false; }
             catch (FormatException) { return false; }
             catch (OverflowException) { return false; }
+            // Subscriber failures are not malformed JSON. Let the runner stop
+            // and report them rather than silently dropping a failed file update.
+            var callback = Progress;
+            if (callback != null) callback(progress);
+            return true;
         }
 
         private static string Text(Dictionary<string, object> data, string name) { object value; return data.TryGetValue(name, out value) && value != null ? Convert.ToString(value, CultureInfo.InvariantCulture) : ""; }

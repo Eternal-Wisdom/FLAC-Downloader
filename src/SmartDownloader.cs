@@ -118,6 +118,7 @@ namespace PlaylistFlac
             if(pending.Count==0) { Say(reviewCount>0?"Downloads are complete except for recording versions that need review.":retryOnly?"No attempted tracks need a retry yet.":"All these tracks are already downloaded."); return reviewCount>0?1:0; }
             var tried=new Dictionary<string,HashSet<string>>();
             foreach(var t in pending) tried[IndexStore.Key(t)]=new HashSet<string>();
+            bool preserveRecoveryOnly=false;
             try
             {
                 if(!retryOnly)
@@ -158,10 +159,12 @@ namespace PlaylistFlac
                 int remaining=pending.Count(t=>!Completed(t)); Say(remaining+" tracks remain unavailable after alternate-name searches.");
                 return remaining==0 && reviewCount==0?0:1;
             }
+            catch(Exception ex) {preserveRecoveryOnly=!(ex is OperationCanceledException);throw;}
             finally
             {
                 // Complete bookkeeping even when Stop cancels network work.
-                FinalizeNames();
+                // Unexpected storage/index failures must not trigger more writes.
+                if(!preserveRecoveryOnly)FinalizeNames();
             }
         }
         private async Task<int> RunPass(string exe,List<SearchJob> jobs,string user,string password,bool strict,CancellationToken ct)
@@ -190,9 +193,7 @@ namespace PlaylistFlac
                             {
                                 Remember(job.Original,path,1,0);
                                 if(++sinceFinalize>=20) {
-                                    try { FinalizeNames();sinceFinalize=0; }
-                                    catch(IOException ex) { Say("Completed files will be renamed when the run stops: "+ex.Message); }
-                                    catch(UnauthorizedAccessException ex) { Say("Completed files will be renamed when the run stops: "+ex.Message); }
+                                    FinalizeNames();sinceFinalize=0;
                                 }
                             }
                         }
@@ -203,8 +204,13 @@ namespace PlaylistFlac
                     else { update.Title="";update.Artist=""; }
                     var callback=Progress;if(callback!=null)callback(update);
                 };
+                bool failed=false;
                 try { return await engine.RunWithIndexAsync(exe,input,incoming,user,password,strict,sessionIndex,LibraryLayout.PathFor(folder,".active-playlist.m3u8"),ct,tuning).ConfigureAwait(false); }
-                finally { Merge(jobs); IndexStore.Save(folder,index,playlist); engine=null; }
+                catch {failed=true;throw;}
+                finally {
+                    try {if(!failed){Merge(jobs);IndexStore.Save(folder,index,playlist);}}
+                    finally {engine=null;}
+                }
             }
         }
         private RenameResult FinalizeNames(CancellationToken ct=default(CancellationToken))

@@ -1,0 +1,46 @@
+using System;
+using System.Globalization;
+using System.Text;
+
+namespace PlaylistFlac
+{
+    // Session-only information. Peer names and remote paths are not exported.
+    internal sealed class TrackDetails
+    {
+        private string peer, filename, format;
+        private long total, transferred;
+        private bool hasProgress;
+        internal void Observe(EngineProgress update)
+        {
+            if(update.Type=="search_start") {peer=filename=format=null;total=transferred=0;hasProgress=false;}
+            if(update.Type=="download_start") {peer=filename=format=null;total=transferred=0;hasProgress=false;}
+            if(!String.IsNullOrEmpty(update.Peer))peer=update.Peer;
+            if(!String.IsNullOrEmpty(update.SourceFilename))filename=update.SourceFilename;
+            if(!String.IsNullOrEmpty(update.SourceFormat))format=update.SourceFormat;
+            if(update.TotalBytes>0)total=update.TotalBytes;
+            if(update.Type=="download_progress") {hasProgress=true;transferred=update.BytesTransferred;}
+        }
+        internal string Describe(Track track,string status,string profile,bool strict)
+        {
+            var text=new StringBuilder();
+            text.AppendLine(track.Title+" — "+track.Artist);
+            text.AppendLine("Album: "+track.Album);
+            text.AppendLine("Status: "+status);
+            text.AppendLine();
+            text.AppendLine("Source peer: "+(peer ?? "Not reported for this track"));
+            text.AppendLine("Source file: "+(filename ?? "Not reported for this track"));
+            text.AppendLine("Reported format: "+(format ?? "Unknown"));
+            text.AppendLine("Reported size: "+(total>0 ? (total/1048576.0).ToString("0.00",CultureInfo.InvariantCulture)+" MiB" : "Unknown"));
+            text.AppendLine("Observed track progress: "+(hasProgress ? (transferred/1048576.0).ToString("0.00",CultureInfo.InvariantCulture)+" MiB" : "Not available"));
+            text.AppendLine();
+            text.AppendLine("Selection policy: "+DownloadTuning.NormalizeQuality(profile));
+            text.AppendLine(strict ? "Artist/title matching, FLAC format, and duration checks are required." : "FLAC format and duration checks are required. Strict artist/title matching is off.");
+            text.AppendLine(profile=="Fast FLAC" ? "The engine can accept an early source that meets the preferences." : "The engine compares search results using its quality and peer preferences.");
+            if(profile=="Prefer high resolution")text.AppendLine("Higher resolution is preferred; CD-quality FLAC remains a fallback.");
+            text.AppendLine();
+            text.AppendLine("The engine does not report a complete ranking explanation or queue position here. Some byte updates identify only a job, so they contribute to the overall speed without being assigned to a song. Unknown information is not estimated.");
+            text.AppendLine("A FLAC extension or higher bit depth does not prove lossless origin or a better master.");
+            return text.ToString();
+        }
+    }
+}

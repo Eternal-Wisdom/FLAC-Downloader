@@ -45,7 +45,7 @@ namespace PlaylistFlac
                 }
                 return;
             }
-            using (var form = new MainForm())
+            using (var form = new MainForm(args.Length>1 && args[0]=="--render-preview"))
             {
                 if (args.Length > 1 && args[0] == "--render-preview")
                 {
@@ -143,6 +143,9 @@ namespace PlaylistFlac
         private Label transferStatus;
         private DateTime lastTransferEvent;
         private readonly Dictionary<string,string> failureReasons=new Dictionary<string,string>();
+        private readonly Dictionary<string,TrackDetails> sourceDetails=new Dictionary<string,TrackDetails>();
+        private string runProfile;
+        private bool runStrict;
         private bool retriesArmed;
         private int waitingRetries;
         private readonly System.Windows.Forms.Timer retryTimer = new System.Windows.Forms.Timer { Interval=30000 };
@@ -165,14 +168,15 @@ namespace PlaylistFlac
         private readonly Dictionary<string,List<ListViewItem>> rowsByQuery = new Dictionary<string,List<ListViewItem>>(StringComparer.OrdinalIgnoreCase);
         private PlaylistProgressState progressState;
 
-        public MainForm()
+        public MainForm(bool previewMode=false)
         {
+            preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.11"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.12"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
-            Build(); FitWindow(); LoadSettings();
+            Build(); FitWindow(); if(!previewMode)LoadSettings();
             autoRetry.CheckedChanged += delegate { retriesArmed=autoRetry.Checked; SaveSettings(); };
             retryTimer.Tick += async delegate { await RetryWaiting(); }; retryTimer.Start();
             uiTimer.Tick += delegate { FlushLog(); if(busy && lastTransferEvent!=DateTime.MinValue && (DateTime.UtcNow-lastTransferEvent).TotalSeconds>4) transferStatus.Text="Waiting for transfer progress"; }; uiTimer.Start();
@@ -295,6 +299,11 @@ namespace PlaylistFlac
             copyTitle.Click+=delegate {if(tracks.SelectedItems.Count>0)Clipboard.SetText(String.Join(Environment.NewLine,tracks.SelectedItems.Cast<ListViewItem>().Select(i=>((Track)i.Tag).Title+" — "+((Track)i.Tag).Artist)));};
             trackMenu.Opening+=delegate {downloadSelected.Enabled=!busy && tracks.SelectedItems.Count>0;copyTitle.Enabled=tracks.SelectedItems.Count>0;};
             tracks.ContextMenuStrip=trackMenu;
+            var detailsItem=trackMenu.Items.Add("Track and source details");
+            detailsItem.Click+=delegate {ShowTrackDetails();};
+            trackMenu.Opening+=delegate {detailsItem.Enabled=tracks.SelectedItems.Count==1;};
+            tracks.DoubleClick+=delegate {ShowTrackDetails();};
+            tracks.KeyDown+=delegate(object sender,KeyEventArgs e) {if(e.KeyCode==Keys.Enter){e.SuppressKeyPress=true;ShowTrackDetails();}};
             AllowDrop=true;
             DragEnter+=delegate(object sender,DragEventArgs e) {if(!busy && (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.UnicodeText)))e.Effect=DragDropEffects.Copy;};
             DragDrop+=delegate(object sender,DragEventArgs e) {
@@ -396,6 +405,7 @@ namespace PlaylistFlac
         }
         private void SaveSettings()
         {
+            if(preview)return;
             try { AppState.Save(new Preferences { Username = username.Text.Trim(), ClientId = clientId.Text.Trim(), OutputDirectory = destination.Text.Trim(), LastCsv = loadedCsv, StrictMatch = strict.Checked, ParallelTracks = SelectedParallelTracks, AutoRetryMissing=autoRetry.Checked, QualityProfile=Convert.ToString(quality.SelectedItem), RememberPassword = remember.Checked, EncryptedPassword = remember.Checked ? AppState.Protect(password.Text) : null }); }
             catch (Exception ex) { Log("Settings could not be saved: " + ex.Message); }
         }
@@ -467,6 +477,7 @@ namespace PlaylistFlac
         }
         private void DisplayPlaylist(Playlist p)
         {
+            sourceDetails.Clear();runProfile=null;
             retriesArmed=false; waitingRetries=0;
             playlist = p; recordingGroups=RecordingGroups.Build(p.Tracks); currentFolder = null; playlistLabel.Text = p.Name; tracks.BeginUpdate(); tracks.Items.Clear(); rowsByKey.Clear();rowsByQuery.Clear();
             int i = 0;
@@ -495,7 +506,7 @@ namespace PlaylistFlac
             if (String.IsNullOrWhiteSpace(username.Text) || String.IsNullOrEmpty(password.Text)) { ShowError("Enter your Soulseek username and password in the right panel. If Nicotine+ uses this account, disconnect it first or use a different account here."); return; }
             if (String.IsNullOrWhiteSpace(destination.Text)) { ShowError("Choose a download folder first."); return; }
             if(selectedKeys==null)retriesArmed=autoRetry.Checked;
-            operation = new CancellationTokenSource(); failureReasons.Clear(); lastTransferEvent=DateTime.MinValue; transferStatus.Text="Searching / waiting for peers"; SetBusy(true); SaveSettings();
+            operation = new CancellationTokenSource(); failureReasons.Clear(); sourceDetails.Clear(); runProfile=Convert.ToString(quality.SelectedItem);runStrict=strict.Checked; lastTransferEvent=DateTime.MinValue; transferStatus.Text="Searching / waiting for peers"; SetBusy(true); SaveSettings();
             try
             {
                 currentFolder = AppState.PlaylistFolder(destination.Text.Trim(), playlist.Name, playlist.Source);
@@ -571,13 +582,24 @@ namespace PlaylistFlac
                 else if(next=="None" || next=="0" || next.Length==0) return;
                 foreach (ListViewItem row in affected)
                 {
-                    string key=IndexStore.Key((Track)row.Tag); if(next=="Failed")failureReasons[key]=update.Status; progressState.Set(key,next); row.SubItems[4].Text=progressState.Status(key);
+                    string key=IndexStore.Key((Track)row.Tag);
+                    TrackDetails details;if(!sourceDetails.TryGetValue(key,out details)){details=new TrackDetails();sourceDetails.Add(key,details);}details.Observe(update);
+                    if(next=="Failed")failureReasons[key]=update.Status; progressState.Set(key,next); row.SubItems[4].Text=progressState.Status(key);
                 }
                 UpdateSummary();
                 status.Text=next=="Failed" ? "A track is unavailable; continuing" : next=="Downloaded" ? "Downloaded "+progressState.Completed+" of "+progressState.Total : next;
             }
         }
         private static string QueryKey(string artist,string title) { artist=artist ?? "";return artist.Length+":"+artist+(title ?? ""); }
+        private void ShowTrackDetails()
+        {
+            if(tracks.SelectedItems.Count!=1)return;
+            var row=tracks.SelectedItems[0];var track=(Track)row.Tag;
+            TrackDetails details;if(!sourceDetails.TryGetValue(IndexStore.Key(track),out details))details=new TrackDetails();
+            using(var window=new Form {Text="Track and source details",StartPosition=FormStartPosition.CenterParent,Size=new Size(650,540),MinimumSize=new Size(440,340),BackColor=Background,ForeColor=Color.White})
+            using(var text=new TextBox {Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Dock=DockStyle.Fill,BackColor=Surface,ForeColor=Color.White,Font=new Font("Segoe UI",10),BorderStyle=BorderStyle.None,Text=details.Describe(track,row.SubItems[4].Text,runProfile ?? Convert.ToString(quality.SelectedItem),runProfile==null ? strict.Checked : runStrict)})
+            {text.AccessibleName="Track, selected source, and matching policy";window.Controls.Add(text);window.ShowDialog(this);}
+        }
         private static void AddRow(Dictionary<string,List<ListViewItem>> map,string key,ListViewItem row)
         { List<ListViewItem> group;if(!map.TryGetValue(key,out group)){group=new List<ListViewItem>();map.Add(key,group);}group.Add(row); }
         private void RestoreStatus(bool force=false)
