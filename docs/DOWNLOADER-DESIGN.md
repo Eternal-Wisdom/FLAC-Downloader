@@ -2,6 +2,8 @@
 
 This project borrows useful ideas from established downloaders while keeping a focused Soulseek workflow. This is a design review, not a benchmark or a ranking of popularity.
 
+See the [expanded GitHub downloader research](DOWNLOADER-RESEARCH.md) for the 2026-10-06 comparison, current-feature inventory, prioritized proposals, and acceptance tests. Proposed improvements are not claims about implemented functionality.
+
 | Reference | Useful idea | Application here |
 | --- | --- | --- |
 | [aria2 manual](https://github.com/aria2/aria2/blob/master/doc/manual-src/en/aria2c.rst) | Bounded concurrency, resumable transfers, integrity checks | Keep configurable job limits and preserve interrupted-job data. The engine handles Soulseek transfers; aria2 does not support Soulseek, so adding it would not accelerate these transfers. |
