@@ -248,6 +248,11 @@ namespace PlaylistFlac
                 string line;
                 while ((line = reader.ReadLine()) != null)
                 {
+                    // The CLI also uses exit 1 for ordinary unavailable tracks.
+                    // A fatal storage/startup error must not become another alias pass.
+                    if(line.IndexOf("[critical] [cli]",StringComparison.OrdinalIgnoreCase)>=0 &&
+                        line.IndexOf("Unhandled CLI error:",StringComparison.OrdinalIgnoreCase)>=0)
+                        throw new IOException("Download engine stopped: "+Redact(line,currentSecret));
                     if (parseProgress && line.StartsWith("{", StringComparison.Ordinal) && TryProgress(line)) continue;
                     EmitLog(line);
                 }

@@ -33,15 +33,13 @@ namespace PlaylistFlac
                 {
                     foreach(var entry in Read(path))
                     {
-                        if(entry==null || entry.Track==null || entry.Key!=IndexStore.Key(entry.Track))continue;
                         var item=new ListViewItem(entry.Track.Title);item.SubItems.Add(entry.Track.Artist);item.SubItems.Add(entry.Paused?"Paused":entry.NextUtc.ToLocalTime().ToString("g"));item.SubItems.Add(entry.Attempts.ToString());item.SubItems.Add(entry.LastReason ?? "Unavailable; details not recorded");item.Tag=new Row {Path=path,Entry=entry};view.Items.Add(item);
                     }
                 }
                 catch(Exception ex) {if(!(ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is InvalidOperationException || ex is FormatException))throw;var item=new ListViewItem("Unreadable saved list");item.SubItems.Add("");item.SubItems.Add("Not changed");item.SubItems.Add("");item.SubItems.Add(ex.Message);view.Items.Add(item);}
             }
         }
-        private static List<RetryEntry> Read(string path) {return new JavaScriptSerializer {MaxJsonLength=32*1024*1024}.Deserialize<List<RetryEntry>>(File.ReadAllText(path)) ?? throwInvalid();}
-        private static List<RetryEntry> throwInvalid() {throw new FormatException("Invalid retry list");}
+        private static List<RetryEntry> Read(string path) {return RetryList.ReadValidated(path);}
         private void Change(int action)
         {
             try

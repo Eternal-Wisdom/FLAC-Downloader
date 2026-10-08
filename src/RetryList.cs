@@ -31,12 +31,25 @@ namespace PlaylistFlac
             path=Path.Combine(stateDirectory,"retry-lists",id+".json");
             if(!File.Exists(path)) return;
             // A corrupt queue must stop automatic work rather than silently erase history.
-            var saved=new JavaScriptSerializer { MaxJsonLength=32*1024*1024 }.Deserialize<List<RetryEntry>>(File.ReadAllText(path));
-            if(saved==null)throw new FormatException("The saved retry list could not be read.");
+            var saved=ReadValidated(path);
             var valid=new HashSet<string>(playlist.Tracks.Select(IndexStore.Key));
             foreach(var entry in saved)
-                if(entry!=null && entry.Track!=null && entry.Key==IndexStore.Key(entry.Track) && valid.Contains(entry.Key))
+                if(valid.Contains(entry.Key))
                 { entry.Attempts=Math.Max(0,Math.Min(20,entry.Attempts)); entries[entry.Key]=entry; }
+        }
+        internal static List<RetryEntry> ReadValidated(string path)
+        {
+            var saved=new JavaScriptSerializer { MaxJsonLength=32*1024*1024 }.Deserialize<List<RetryEntry>>(File.ReadAllText(path));
+            if(saved==null)throw new FormatException("The saved retry list is invalid. It was preserved; automatic retries are paused.");
+            var keys=new HashSet<string>(StringComparer.Ordinal);
+            foreach(var entry in saved)
+            {
+                if(entry==null || entry.Track==null || entry.Key!=IndexStore.Key(entry.Track) ||
+                   String.IsNullOrWhiteSpace(entry.Track.Title) || String.IsNullOrWhiteSpace(entry.Track.Artist) ||
+                   entry.NextUtc==DateTime.MinValue || !keys.Add(entry.Key))
+                    throw new FormatException("The saved retry list contains incomplete or conflicting entries. It was preserved; automatic retries are paused.");
+            }
+            return saved;
         }
         internal HashSet<string> Due(DateTime utc, int limit)
         {

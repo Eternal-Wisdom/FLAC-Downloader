@@ -121,8 +121,11 @@ namespace PlaylistFlac
             bool preserveRecoveryOnly=false;
             try
             {
-                if(!retryOnly)
+                // A peer may simply have come online since the previous attempt.
+                // Do not put a whole playlist of optional metadata lookups before
+                // the first real search when the user presses Retry.
                 {
+                    Say("Searching for "+pending.Count+" missing recordings...");
                     var first=pending.Select(t=>new SearchJob {Original=t,Query=SearchNames.GetVariants(t).FirstOrDefault() ?? t}).ToList();
                     MarkTried(first,tried);
                     int code=await RunPass(enginePath,first,username,password,strict,ct).ConfigureAwait(false);
@@ -134,18 +137,24 @@ namespace PlaylistFlac
                 Say("Looking up alternate recording names for "+pending.Count+" missing tracks...");
                 var variants=new Dictionary<string,List<Track>>();
                 using(var lookup=new AliasLookup(Path.Combine(state,"metadata")))
+                using(var lookupBudget=CancellationTokenSource.CreateLinkedTokenSource(ct))
+                {
+                lookupBudget.CancelAfter(TimeSpan.FromSeconds(30));
+                bool budgetReported=false;
                 foreach(var t in pending)
                 {
                     ct.ThrowIfCancellationRequested();
                     var candidates=new List<Track>();
-                    try { candidates.AddRange(await lookup.FindAsync(t,ct).ConfigureAwait(false)); }
-                    catch(OperationCanceledException) { if(ct.IsCancellationRequested) throw; Say("Recording-name lookup timed out; local aliases will still be tried."); }
+                    try { if(!lookupBudget.IsCancellationRequested)candidates.AddRange(await lookup.FindAsync(t,lookupBudget.Token).ConfigureAwait(false)); }
+                    catch(OperationCanceledException) { ct.ThrowIfCancellationRequested(); }
                     catch(Exception ex) { if(ex is IOException || ex is System.Net.Http.HttpRequestException || ex is ArgumentException || ex is InvalidOperationException) Say("Recording-name lookup unavailable; using local aliases."); else throw; }
+                    if(lookupBudget.IsCancellationRequested && !budgetReported) { Say("Optional recording-name lookup reached its 30-second limit; continuing with local aliases.");budgetReported=true; }
                     List<Track> sameIsrc;
                     if(!String.IsNullOrEmpty(t.Isrc) && isrcGroups.TryGetValue(t.Isrc,out sameIsrc))
                         candidates.AddRange(sameIsrc.Where(x=>x.DurationSeconds>0 && Math.Abs(x.DurationSeconds-t.DurationSeconds)<=5 && IndexStore.Key(x)!=IndexStore.Key(t)).Select(x=>new Track { Title=x.Title,Artist=x.PrimaryArtist,Album=t.Album,DurationSeconds=t.DurationSeconds }));
                     candidates.AddRange(SearchNames.GetVariants(t)); candidates.Add(t);
                     variants[IndexStore.Key(t)]=candidates.GroupBy(IndexStore.Key).Select(g=>g.First()).Where(x=>!tried[IndexStore.Key(t)].Contains(IndexStore.Key(x))).Take(5).ToList();
+                }
                 }
                 for(int pass=0;pass<5;pass++)
                 {
@@ -205,7 +214,10 @@ namespace PlaylistFlac
                     var callback=Progress;if(callback!=null)callback(update);
                 };
                 bool failed=false;
-                try { return await engine.RunWithIndexAsync(exe,input,incoming,user,password,strict,sessionIndex,LibraryLayout.PathFor(folder,".active-playlist.m3u8"),ct,tuning).ConfigureAwait(false); }
+                // The engine truncates its M3U with FileMode.Create, which Windows
+                // rejects for an existing hidden file. Use a fresh per-pass path;
+                // the canonical playlist is maintained separately by IndexStore.
+                try { return await engine.RunWithIndexAsync(exe,input,incoming,user,password,strict,sessionIndex,Path.Combine(incoming,"session.m3u8"),ct,tuning).ConfigureAwait(false); }
                 catch {failed=true;throw;}
                 finally {
                     try {if(!failed){Merge(jobs);IndexStore.Save(folder,index,playlist);}}
