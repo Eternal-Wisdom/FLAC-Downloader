@@ -23,6 +23,8 @@ try {
         if($LASTEXITCODE -eq 0){$env:FLAC_TEST_REVISION=$revision;$tree=& git -C $root status --porcelain 2>$null;$env:FLAC_TEST_TREE=if($tree){'modified'}else{'clean'}}
     }
     $process=Start-Process -FilePath $runner -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $build 'test-output.log') -RedirectStandardError (Join-Path $build 'test-errors.log')
+    # Windows PowerShell 5.1 needs the process handle retained before waiting to read ExitCode reliably.
+    $processHandle=$process.Handle
     if(-not $process.WaitForExit(180000)){$process.Kill();$process.WaitForExit();throw 'Offline tests exceeded three minutes; no tested-build receipt created.'}
 } finally {$env:FLAC_TEST_REVISION=$oldRevision;$env:FLAC_TEST_TREE=$oldTree}
 if(-not (Test-Path -LiteralPath $result) -or -not (Test-Path -LiteralPath $xmlReport)){throw 'Offline tests produced no complete result report.'}
