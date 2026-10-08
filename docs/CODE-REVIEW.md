@@ -4,6 +4,8 @@ Reviewed 2026-10-07 against the v1.11.0 source and bundled Sockseek 3.0.5 source
 
 ## Rewrite decision
 
+See the subsequent [functionality and dependency review](FUNCTIONALITY-REVIEW.md) for the local catalog optimization, audit-scope fixes, measured lookup timings and dependency decisions.
+
 Retain the existing application. Its small WinForms shell, separate import/recording/transfer modules, pinned engine, synthetic tests, and recovery mechanisms are useful foundations. A full rewrite would incur substantial compatibility and migration work without evidence of better matching or network throughput.
 
 The code does need incremental cleanup. Several files contain dense one-line methods, the main form owns too many responsibilities, and progress callbacks currently perform synchronous bookkeeping. Future work should extract a download-session controller and keep transport events separate from library transactions. Avoid changing these boundaries together with album matching or transfer scheduling.
@@ -18,6 +20,7 @@ The code does need incremental cleanup. Several files contain dense one-line met
 | The source-start event looked like active downloading. Users could not inspect the chosen remote file. | Show that a source is selected and waiting for bytes; add a session-only details view with peer, file, size, format, matching policy, and explicit unknowns. | Synthetic source events, metadata reset on source changes, 64-bit progress tests, and interface preview. |
 | Preview startup loaded private settings, and settings callbacks could write during preview. | Enter preview mode before form initialization, skip loading private settings, and block settings writes. | Synthetic preview rendering; no real account or music library required. |
 | Test execution could read an old success report. | Remove the previous report before starting; kill timed-out test processes. | Test script review and fresh full-suite execution. |
+| Valid JSON retry files could contain incomplete, mismatched, or duplicate entries that were silently discarded. | Validate the complete saved list before filtering it for a collection or allowing edits; preserve damaged input and stop automatic retries. | Null, incomplete, mismatched-key, duplicate-key, and missing-schedule fixtures, plus retry-window isolation tests. This follow-up remains local. |
 
 ## Recommendation decisions
 
