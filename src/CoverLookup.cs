@@ -30,6 +30,7 @@ namespace PlaylistFlac
         private readonly HttpClient http;
         private readonly string cacheDirectory;
         private readonly Func<CancellationToken, Task> testPacing;
+        private readonly Func<DateTime> utcNow;
         private readonly SemaphoreSlim requests = new SemaphoreSlim(4, 4);
         private readonly object sync = new object();
         private readonly Dictionary<string, SemaphoreSlim> keyGates = new Dictionary<string, SemaphoreSlim>(StringComparer.Ordinal);
@@ -49,14 +50,18 @@ namespace PlaylistFlac
             : this(cacheDirectory, new HttpClientHandler { AllowAutoRedirect = false, AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }, null) { }
 
         internal CoverLookup(string cacheDirectory, HttpMessageHandler handler, Func<CancellationToken, Task> pacing)
+            : this(cacheDirectory, handler, pacing, () => DateTime.UtcNow) { }
+
+        internal CoverLookup(string cacheDirectory, HttpMessageHandler handler, Func<CancellationToken, Task> pacing, Func<DateTime> clock)
         {
             if (handler == null) throw new ArgumentNullException("handler");
             this.cacheDirectory = Path.GetFullPath(cacheDirectory);
             Directory.CreateDirectory(this.cacheDirectory);
             testPacing = pacing;
+            utcNow = clock;
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("PlaylistFLAC/1.6 (personal local desktop application)");
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("FLAC-Downloader/1.13 (https://github.com/Eternal-Wisdom/FLAC-Downloader)");
         }
 
         public async Task<CoverLookupResult> FindAsync(Track track, CancellationToken ct)
@@ -262,6 +267,7 @@ namespace PlaylistFlac
             await requests.WaitAsync(ct).ConfigureAwait(false);
             try
             {
+                if (Blocked(service)) return new FetchResult();
                 using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct))
                 {
                     timeout.CancelAfter(TimeSpan.FromSeconds(20));
@@ -287,7 +293,7 @@ namespace PlaylistFlac
                                     current = next; continue;
                                 }
                                 if (status == 429 || status == 408 || status >= 500)
-                                { Failed(service, status == 429 || status == 503); return new FetchResult(); }
+                                { Failed(service, status == 429 || status == 503, RetryDelay(response, utcNow())); return new FetchResult(); }
                                 if (status != 200) return new FetchResult { PermanentMiss = true };
                                 if (response.Content == null || response.Content.Headers.ContentLength > maximumBytes)
                                     return new FetchResult { PermanentMiss = true };
@@ -317,14 +323,28 @@ namespace PlaylistFlac
         }
 
         private bool Blocked(string service)
-        { lock (sync) { DateTime until; return blockedUntil.TryGetValue(service, out until) && DateTime.UtcNow < until; } }
+        { lock (sync) { DateTime until; return blockedUntil.TryGetValue(service, out until) && utcNow() < until; } }
 
-        private void Failed(string service, bool throttle)
+        internal static TimeSpan? RetryDelay(HttpResponseMessage response, DateTime now)
+        {
+            var retry = response.Headers.RetryAfter;
+            if (retry == null) return null;
+            TimeSpan delay = retry.Delta ?? (retry.Date.HasValue ? retry.Date.Value.UtcDateTime - now : TimeSpan.Zero);
+            return TimeSpan.FromSeconds(Math.Max(0, Math.Min(86400, delay.TotalSeconds)));
+        }
+
+        private void Failed(string service, bool throttle, TimeSpan? serverDelay = null)
         {
             lock (sync)
             {
                 int count; failures.TryGetValue(service, out count); failures[service] = ++count;
-                if (throttle || count >= 3) blockedUntil[service] = DateTime.UtcNow.AddMinutes(2);
+                if (throttle || count >= 3 || serverDelay.HasValue)
+                {
+                    double seconds = Math.Min(21600, 120 * Math.Pow(2, Math.Min(8, count - 1)));
+                    if (serverDelay.HasValue) seconds = Math.Max(seconds, serverDelay.Value.TotalSeconds);
+                    DateTime until = utcNow().AddSeconds(seconds), existing;
+                    if (!blockedUntil.TryGetValue(service, out existing) || until > existing) blockedUntil[service] = until;
+                }
             }
         }
 

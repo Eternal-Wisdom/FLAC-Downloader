@@ -252,11 +252,11 @@ namespace PlaylistFlac
         private static string SafeTitle(string title)
         {
             var result = new StringBuilder();
-            foreach (char c in (title ?? "")) result.Append(c < 32 || "<>:\"/\\|?*".IndexOf(c) >= 0 ? '_' : c);
+            foreach (char c in (title ?? "")) result.Append(Char.IsControl(c) || "<>:\"/\\|?*".IndexOf(c) >= 0 ? '_' : c);
             string name = result.ToString().Trim(' ', '.');
             if (name.Length > 150) name = name.Substring(0, Char.IsHighSurrogate(name[149]) ? 149 : 150).TrimEnd(' ', '.');
             if (name.Length == 0) name = "Untitled";
-            if (Regex.IsMatch(name, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])($|\.)", RegexOptions.IgnoreCase)) name = "_" + name;
+            if (Regex.IsMatch(name, @"^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])\s*($|\.)", RegexOptions.IgnoreCase)) name = "_" + Truncate(name,149);
             return name;
         }
 

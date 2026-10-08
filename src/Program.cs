@@ -29,21 +29,19 @@ namespace PlaylistFlac
             }
             if (args.Length > 0 && args[0] == "--self-test")
             {
-                try
-                {
-                    WindowLayoutTests.Run(); ImportTests.Run(); SearchNameTests.Run(); EngineTests.Run(); AuditTests.Run(); RecordingIdentityTests.Run(); FlacIdentityTests.Run(); FlacArtworkTests.Run(); CoverLookupTests.Run(); ArtworkLibraryTests.Run(); ArtworkPerformanceTests.Run(); DuplicateLibraryTests.Run(); NamingTests.Run(); SmartTests.Run(); AliasLookupTests.Run(); LibraryStatusTests.Run(); ProgressStateTests.Run(); RetryListTests.Run(); RecoveryFolderTests.Run(); TransferTelemetryTests.Run(); RecordingCatalogTests.Run(); RetryReviewTests.Run(); LibraryLayoutTests.Run(); TrackFileActionsTests.Run();
-                    EngineTests.CheckRealEngine(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine", "sockseek.exe"));
-                    ParallelDownloadTests.Run(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine", "sockseek.exe"));
-                    TestLocal();
-                    File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"artwork-performance.txt"),ArtworkPerformanceTests.Result+"\r\n");
-                    File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test-results.txt"), "PASS: cover import, cached artwork lookup, reversible FLAC artwork, library maintenance, recording duplicates, collision filenames, parallel job limits, restart pacing, settings migration, alternate names, engine, folder locking, cache recovery, FLAC audit, saved progress, credentials and path checks.\r\n");
-                }
+                MessageBox.Show("Tests are run separately with scripts/Test.ps1 from the source package.", "FLAC-Downloader");
+                Environment.ExitCode = 2; return;
+            }
+            bool rendering = args.Length > 1 && args[0] == "--render-preview";
+            if (!rendering)
+            {
+                try { EnvironmentGuard.EnsureWritableState(AppState.StateDirectory); }
                 catch (Exception ex)
                 {
-                    File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test-results.txt"), "FAIL: " + ex);
-                    Environment.ExitCode = 1;
+                    if (!(ex is IOException) && !(ex is UnauthorizedAccessException) && !(ex is System.Security.SecurityException)) throw;
+                    MessageBox.Show("The app cannot save its settings here. Extract the entire app folder to a writable location, such as Downloads, and open it there.", "FLAC-Downloader", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.ExitCode = 1; return;
                 }
-                return;
             }
             using (var form = new MainForm(args.Length>1 && args[0]=="--render-preview"))
             {
@@ -60,19 +58,6 @@ namespace PlaylistFlac
             }
         }
 
-        private static void TestLocal()
-        {
-            string p = AppState.PlaylistFolder("C:\\Music", "..\\CON: / unsafe", "one");
-            if (!p.StartsWith("C:\\Music\\") || p.Contains("..\\")) throw new Exception("Unsafe playlist path");
-            if (p == AppState.PlaylistFolder("C:\\Music", "..\\CON: / unsafe", "two")) throw new Exception("Playlist identity collision");
-            string secret = "Unicode password \u266b = spaces";
-            if (AppState.Unprotect(AppState.Protect(secret)) != secret) throw new Exception("Credential encryption round trip failed");
-            var serializer = new JavaScriptSerializer();
-            var oldSettings = serializer.Deserialize<Preferences>("{\"StrictMatch\":true}");
-            if (oldSettings.ParallelTracks != 20 || !oldSettings.StrictMatch) throw new Exception("Existing settings did not migrate to twenty parallel tracks");
-            var savedSettings = serializer.Deserialize<Preferences>(serializer.Serialize(new Preferences { ParallelTracks = 32 }));
-            if (savedSettings.ParallelTracks != 32) throw new Exception("Parallel-track setting did not round trip");
-        }
     }
 
     internal sealed class Preferences
@@ -110,10 +95,14 @@ namespace PlaylistFlac
         public static string Protect(string value)
         { return Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(value), null, DataProtectionScope.CurrentUser)); }
         public static string Unprotect(string value)
+        { string plain; return TryUnprotect(value, out plain) ? plain : ""; }
+        internal static bool TryUnprotect(string value, out string plain)
         {
-            if (String.IsNullOrEmpty(value)) return "";
-            try { return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value), null, DataProtectionScope.CurrentUser)); }
-            catch { return ""; }
+            plain = "";
+            if (String.IsNullOrEmpty(value)) return true;
+            try { plain = Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value), null, DataProtectionScope.CurrentUser)); return true; }
+            catch (FormatException) { return false; }
+            catch (CryptographicException) { return false; }
         }
         public static string PlaylistFolder(string root, string name, string source)
         {
@@ -172,7 +161,7 @@ namespace PlaylistFlac
         {
             preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.12"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.13"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -418,12 +407,22 @@ namespace PlaylistFlac
             Log("Fix library adds missing covers, consolidates duplicates and distinguishes same-title songs by artist.");
         }
         private string EnginePath { get { return Path.Combine(AppState.Root, "engine", "sockseek.exe"); } }
+        private string preservedPassword;
         private void LoadSettings()
         {
             var s = AppState.Load(); username.Text = s.Username ?? ""; clientId.Text = s.ClientId ?? "";
             autoRetry.Checked=s.AutoRetryMissing; quality.SelectedItem=DownloadTuning.NormalizeQuality(s.QualityProfile);
             destination.Text = String.IsNullOrWhiteSpace(s.OutputDirectory) ? Path.Combine(AppState.Root, "Music") : s.OutputDirectory;
-            remember.Checked = s.RememberPassword; password.Text = s.RememberPassword ? AppState.Unprotect(s.EncryptedPassword) : ""; strict.Checked = s.StrictMatch;
+            remember.Checked = s.RememberPassword;
+            string savedPassword;
+            if (s.RememberPassword && !AppState.TryUnprotect(s.EncryptedPassword, out savedPassword))
+            {
+                password.Text = "";
+                preservedPassword = s.EncryptedPassword;
+                Log("The saved password cannot be opened on this Windows account. Enter your Soulseek password again, or turn off Remember password.");
+            }
+            else password.Text = s.RememberPassword ? AppState.Unprotect(s.EncryptedPassword) : "";
+            strict.Checked = s.StrictMatch;
             int parallel = DownloadTuning.NormalizeParallelTracks(s.ParallelTracks); parallel8.Checked = parallel == 8; parallel20.Checked = parallel == 20; parallel32.Checked = parallel == 32;
             loadedCsv = s.LastCsv;
             if (!String.IsNullOrEmpty(loadedCsv) && File.Exists(loadedCsv))
@@ -432,7 +431,8 @@ namespace PlaylistFlac
         private void SaveSettings()
         {
             if(preview)return;
-            try { AppState.Save(new Preferences { Username = username.Text.Trim(), ClientId = SpotifyImporter.ClientIdForStorage(clientId.Text), OutputDirectory = destination.Text.Trim(), LastCsv = loadedCsv, StrictMatch = strict.Checked, ParallelTracks = SelectedParallelTracks, AutoRetryMissing=autoRetry.Checked, QualityProfile=Convert.ToString(quality.SelectedItem), RememberPassword = remember.Checked, EncryptedPassword = remember.Checked ? AppState.Protect(password.Text) : null }); }
+            if(!String.IsNullOrEmpty(password.Text))preservedPassword=null;
+            try { AppState.Save(new Preferences { Username = username.Text.Trim(), ClientId = SpotifyImporter.ClientIdForStorage(clientId.Text), OutputDirectory = destination.Text.Trim(), LastCsv = loadedCsv, StrictMatch = strict.Checked, ParallelTracks = SelectedParallelTracks, AutoRetryMissing=autoRetry.Checked, QualityProfile=Convert.ToString(quality.SelectedItem), RememberPassword = remember.Checked, EncryptedPassword = remember.Checked ? (String.IsNullOrEmpty(password.Text) && preservedPassword != null ? preservedPassword : AppState.Protect(password.Text)) : null }); }
             catch (Exception ex) { Log("Settings could not be saved: " + ex.Message); }
         }
         private void SetBusy(bool value)
