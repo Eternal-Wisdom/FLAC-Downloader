@@ -47,10 +47,32 @@ internal static class RecordingCatalogTests
             reissue.DurationSeconds=200;Check(catalog.Reuse(reissue,target,CancellationToken.None)==null,"different version rejected");reissue.DurationSeconds=180;
             File.SetLastWriteTimeUtc(source,File.GetLastWriteTimeUtc(source).AddSeconds(10));Check(catalog.Reuse(reissue,target,CancellationToken.None)==null,"changed source invalidates cache");
             catalog.Register(playlist,library,index,CancellationToken.None);
+            Check(catalog.Matching(reissue).Any(),"register refreshes the lookup in the current catalog instance");
             using(var cancel=new CancellationTokenSource()) {cancel.Cancel();bool stopped=false;try {catalog.Reuse(reissue,target,cancel.Token);}catch(OperationCanceledException){stopped=true;}Check(stopped,"cancellation stops reuse");}
             Directory.Delete(integrated,true);File.Delete(source);Check(catalog.Reuse(reissue,target,CancellationToken.None)==null,"all registered sources missing falls back to search");
+            BenchmarkLookup(root);
         }
         finally {Directory.Delete(root,true);}
     }
     private static void Check(bool value,string reason){if(!value)throw new Exception("Recording catalog: "+reason);}
+    private static void BenchmarkLookup(string root)
+    {
+        var rows=new List<CatalogRecording>();
+        for(int i=0;i<2000;i++)rows.Add(new CatalogRecording {Track=new Track {Title="Song "+i,Artist="Demo artist",Isrc="USAAA26"+i.ToString("D5"),DurationSeconds=180}});
+        string folder=Path.Combine(root,"benchmark");Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder,"recordings.json"),new System.Web.Script.Serialization.JavaScriptSerializer {MaxJsonLength=32*1024*1024}.Serialize(rows));
+        var watch=System.Diagnostics.Stopwatch.StartNew();var catalog=new RecordingCatalog(folder);watch.Stop();long build=watch.ElapsedTicks;
+        var queries=Enumerable.Range(0,80).Select(i=>new Track {Title="Song "+(i*25),Artist="Demo artist",Isrc="USAAA26"+(i*25).ToString("D5"),DurationSeconds=181}).ToList();
+        // Compare against the previous complete scan, preserving identical matching rules.
+        watch.Restart();var expected=new List<int>();
+        foreach(var query in queries) {
+            var d=new RecordingDescriptor(query);
+            expected.Add(rows.Count(e=> {var candidate=new RecordingDescriptor(e.Track);return candidate.Isrc==d.Isrc && candidate.MetadataKey==d.MetadataKey && candidate.KnownLength && Math.Abs(candidate.Length-d.Length)<=2;}));
+        }
+        watch.Stop();long scan=watch.ElapsedTicks;watch.Restart();
+        var actual=queries.Select(q=>catalog.Matching(q).Count()).ToList();watch.Stop();long lookup=watch.ElapsedTicks;
+        Check(actual.SequenceEqual(expected) && actual.All(n=>n==1),"indexed large-catalog results match previous matching behavior");
+        Check(!catalog.Matching(new Track {Title="Missing",Artist="Demo artist",Isrc="USAAA2699999",DurationSeconds=180}).Any(),"missing recording avoids unrelated entries");
+        File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"catalog-performance.txt"),String.Format(System.Globalization.CultureInfo.InvariantCulture,"Synthetic catalog: 2000 entries, 80 lookups. Full scan {0:F2} ms; indexed queries {1:F2} ms; catalog deserialize/index construction {2:F2} ms. This measures local metadata lookup, not network speed.",scan*1000.0/System.Diagnostics.Stopwatch.Frequency,lookup*1000.0/System.Diagnostics.Stopwatch.Frequency,build*1000.0/System.Diagnostics.Stopwatch.Frequency));
+    }
 }

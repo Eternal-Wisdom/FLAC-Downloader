@@ -247,6 +247,11 @@ namespace PlaylistFlac
         private DateTime expiresAt;
         private bool disposed;
         public bool IsConnected { get { return !disposed && !String.IsNullOrEmpty(accessToken); } }
+        internal static string ClientIdForStorage(string value)
+        {
+            value=(value ?? "").Trim();
+            return Regex.IsMatch(value,"^[a-fA-F0-9]{32}$") ? value : "";
+        }
 
         public SpotifyImporter() : this(new HttpClientHandler { AllowAutoRedirect = false }) { }
         internal SpotifyImporter(HttpMessageHandler handler)
@@ -259,6 +264,7 @@ namespace PlaylistFlac
         {
             ThrowIfDisposed();
             clientId = (clientId ?? "").Trim();
+            if(clientId.StartsWith("spak_",StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("This is a Spotify Soloist API key. Playlist import requires the 32-character Client ID from a Spotify Web API app, not a Soloist key. You can also import a CSV tracklist.");
             if (!Regex.IsMatch(clientId, "^[a-fA-F0-9]{32}$")) throw new ArgumentException("Enter the 32-character Client ID from your Spotify developer app. A client secret is not needed.");
             using (var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3)))
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token, timeout.Token))

@@ -42,6 +42,16 @@ namespace PlaylistFlac
                 throw new IOException("Choose a real folder rather than a linked folder.");
 
             ct.ThrowIfCancellationRequested();
+            for(string cursor=root;cursor!=null;cursor=Path.GetDirectoryName(cursor))
+                if((File.GetAttributes(cursor)&FileAttributes.ReparsePoint)!=0)throw new IOException("Choose a folder without linked parent directories.");
+            string lockPath=Path.Combine(root,".download.lock");
+            if(File.Exists(lockPath) && (File.GetAttributes(lockPath)&FileAttributes.ReparsePoint)!=0)throw new IOException("The collection lock must not be a file link.");
+            using(var outputLock=new FileStream(lockPath,FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None))
+                return CheckFolderLocked(root,ct);
+        }
+
+        private static FlacAuditResult CheckFolderLocked(string root,CancellationToken ct)
+        {
             List<string> paths = FindFlacFiles(root, ct);
             paths.Sort(StringComparer.OrdinalIgnoreCase);
             FlacAuditResult result = new FlacAuditResult();
@@ -96,6 +106,7 @@ namespace PlaylistFlac
             ct.ThrowIfCancellationRequested();
             try
             {
+                if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)return Invalid("Linked files are not checked");
                 using (FileStream input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     byte[] prefix = new byte[8];
@@ -159,12 +170,19 @@ namespace PlaylistFlac
                 {
                     ct.ThrowIfCancellationRequested();
                     if (String.Equals(Path.GetExtension(path), ".flac", StringComparison.OrdinalIgnoreCase))
-                        paths.Add(path);
+                        if((File.GetAttributes(path)&FileAttributes.ReparsePoint)==0)paths.Add(path);
                 }
                 foreach (string child in Directory.GetDirectories(current))
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Path.GetFileName(child).StartsWith(".duplicates-backup-", StringComparison.OrdinalIgnoreCase) || (String.Equals(Path.GetFileName(child),RecoveryFolders.Name,StringComparison.OrdinalIgnoreCase) || String.Equals(Path.GetFileName(child),LibraryLayout.Name,StringComparison.OrdinalIgnoreCase))) continue;
+                    string name=Path.GetFileName(child);
+                    if (name.StartsWith(".duplicates-backup-", StringComparison.OrdinalIgnoreCase) ||
+                        name.StartsWith(".naming-backup-",StringComparison.OrdinalIgnoreCase) ||
+                        name.StartsWith(".artwork-backup-",StringComparison.OrdinalIgnoreCase) ||
+                        String.Equals(name,".incoming",StringComparison.OrdinalIgnoreCase) ||
+                        String.Equals(name,".search",StringComparison.OrdinalIgnoreCase) ||
+                        String.Equals(name,RecoveryFolders.Name,StringComparison.OrdinalIgnoreCase) ||
+                        String.Equals(name,LibraryLayout.Name,StringComparison.OrdinalIgnoreCase)) continue;
                     if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
                         directories.Push(child);
                 }

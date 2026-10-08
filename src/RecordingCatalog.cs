@@ -22,20 +22,40 @@ namespace PlaylistFlac
     {
         private readonly string path;
         private readonly List<CatalogRecording> entries;
+        private sealed class Candidate { internal CatalogRecording Entry; internal RecordingDescriptor Identity; }
+        private Dictionary<string,List<Candidate>> byIsrc;
+        private void BuildLookup()
+        {
+            var lookup=new Dictionary<string,List<Candidate>>(StringComparer.Ordinal);
+            foreach(var entry in entries)
+            {
+                if(entry==null || entry.Track==null)continue;
+                var identity=new RecordingDescriptor(entry.Track);
+                if(identity.Isrc.Length==0 || !identity.KnownLength || !identity.HasMetadata)continue;
+                List<Candidate> bucket;
+                if(!lookup.TryGetValue(identity.Isrc,out bucket))lookup.Add(identity.Isrc,bucket=new List<Candidate>());
+                bucket.Add(new Candidate {Entry=entry,Identity=identity});
+            }
+            byIsrc=lookup;
+        }
+        internal IEnumerable<CatalogRecording> Matching(Track track)
+        {
+            var identity=new RecordingDescriptor(track);
+            List<Candidate> bucket;
+            if(identity.Isrc.Length==0 || !identity.KnownLength || !identity.HasMetadata || !byIsrc.TryGetValue(identity.Isrc,out bucket))return Enumerable.Empty<CatalogRecording>();
+            return bucket.Where(c=>c.Identity.MetadataKey==identity.MetadataKey && Math.Abs(c.Identity.Length-identity.Length)<=2).Select(c=>c.Entry);
+        }
         internal RecordingCatalog(string directory)
         {
             path=System.IO.Path.Combine(directory,"recordings.json");
             entries=File.Exists(path)?new JavaScriptSerializer {MaxJsonLength=32*1024*1024}.Deserialize<List<CatalogRecording>>(File.ReadAllText(path)):new List<CatalogRecording>();
             if(entries==null)throw new FormatException("The recording catalog could not be read.");
+            BuildLookup();
         }
         internal string Reuse(Track track,string folder,CancellationToken ct)
         {
-            var descriptor=new RecordingDescriptor(track);
-            if(descriptor.Isrc.Length==0 || !descriptor.KnownLength || !descriptor.HasMetadata)return null;
-            var matching=entries.Where(e=>e!=null && e.Track!=null).Where(e=> {
-                var d=new RecordingDescriptor(e.Track);
-                return d.Isrc==descriptor.Isrc && d.MetadataKey==descriptor.MetadataKey && d.KnownLength && Math.Abs(d.Length-descriptor.Length)<=2;
-            });
+            ct.ThrowIfCancellationRequested();
+            var matching=Matching(track);
             foreach(var entry in matching)
             {
                 ct.ThrowIfCancellationRequested();
@@ -89,6 +109,7 @@ namespace PlaylistFlac
             }
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
             IndexStore.AtomicWrite(path,new JavaScriptSerializer {MaxJsonLength=32*1024*1024}.Serialize(entries));
+            BuildLookup();
             }
         }
     }

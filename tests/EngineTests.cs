@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -63,7 +63,7 @@ internal static class EngineTests
         try
         {
             string exe = Path.Combine(root, "fake engine.exe");
-            string source = @"using System; using System.IO; using System.Threading; class Fake { static int Main(string[] a) { string config = a[Array.IndexOf(a,""--config"")+1]; string output = a[Array.IndexOf(a,""--output-dir"")+1]; string text = File.ReadAllText(config); if(!text.Contains(""password = \""testsecret\"""")) return 20; if(Array.IndexOf(a,""--format"")<0 || a[Array.IndexOf(a,""--format"")+1] != ""flac"") return 21; File.WriteAllText(Path.Combine(output,""started""),config); Console.WriteLine(""password=testsecret""); Console.WriteLine(""{\""type\"":\""track_list\"",\""data\"":{\""total\"":1,\""existing\"":0}}""); if (output.EndsWith(""cancel"")) Thread.Sleep(30000); Console.WriteLine(""{\""type\"":\""track_state\"",\""data\"":{\""terminalOutcome\"":\""Succeeded\"",\""title\"":\""Song\""}}""); return 0; } }";
+            string source = @"using System; using System.IO; using System.Threading; class Fake { static int Main(string[] a) { string config = a[Array.IndexOf(a,""--config"")+1]; string output = a[Array.IndexOf(a,""--output-dir"")+1]; string text = File.ReadAllText(config); if(!text.Contains(""password = \""testsecret\"""")) return 20; if(Array.IndexOf(a,""--format"")<0 || a[Array.IndexOf(a,""--format"")+1] != ""flac"") return 21; File.WriteAllText(Path.Combine(output,""started""),config); if(output.EndsWith(""fatal"")) { Console.Error.WriteLine(""[critical] [cli] Unhandled CLI error: Access to the path is denied. testsecret""); return 1; } Console.WriteLine(""password=testsecret""); Console.WriteLine(""{\""type\"":\""track_list\"",\""data\"":{\""total\"":1,\""existing\"":0}}""); if (output.EndsWith(""cancel"") || output.EndsWith(""fault"")) Thread.Sleep(30000); Console.WriteLine(""{\""type\"":\""track_state\"",\""data\"":{\""terminalOutcome\"":\""Succeeded\"",\""title\"":\""Song\""}}""); return 0; } }";
             using (var provider = new CSharpCodeProvider())
             {
                 var options = new CompilerParameters { GenerateExecutable = true, OutputAssembly = exe };
@@ -107,8 +107,40 @@ internal static class EngineTests
                 Check(run.GetAwaiter().GetResult() == 130 && timer.ElapsedMilliseconds < 3000, "cooldown cancels promptly");
                 Check(!Directory.Exists(output), "cancelled cooldown does not start a child or create output");
             }
+            using(var engine=new DownloadEngine(Path.Combine(root,"fatal-sessions"),0))
+            {
+                bool stopped=false;
+                try {engine.RunAsync(exe,csv,Path.Combine(root,"fatal"),"testuser","testsecret",true,CancellationToken.None).GetAwaiter().GetResult();}
+                catch(IOException ex) {stopped=ex.Message.Contains("Access to the path") && !ex.Message.Contains("testsecret");}
+                Check(stopped,"fatal CLI exit 1 is a redacted exception, not an unavailable-track retry");
+                Check(!File.Exists(File.ReadAllText(Path.Combine(root,"fatal","started"))),"fatal CLI cleanup removes credentials");
+            }
+            foreach(bool ioFailure in new[]{true,false})
+            {
+                string faultOutput=Path.Combine(root,ioFailure ? "io-fault" : "subscriber-fault");
+                using(var engine=new DownloadEngine(Path.Combine(root,"fault-sessions"),0))
+                {
+                    engine.Progress+=p=>{if(ioFailure)throw new IOException("Synthetic storage failure");throw new InvalidOperationException("Synthetic callback failure");};
+                    var timer=Stopwatch.StartNew();bool propagated=false;
+                    try {engine.RunAsync(exe,csv,faultOutput,"testuser","testsecret",true,CancellationToken.None).GetAwaiter().GetResult();}
+                    catch(IOException) {propagated=ioFailure;}
+                    catch(InvalidOperationException) {propagated=!ioFailure;}
+                    Check(propagated && timer.ElapsedMilliseconds<5000,"consumer failure stops the child promptly and preserves the cause");
+                    Check(!File.Exists(File.ReadAllText(Path.Combine(faultOutput,"started"))),"credentials removed after consumer failure");
+                }
+            }
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            // Windows can briefly retain the just-exited fixture executable.
+            // Bound retries; a persistent cleanup failure must still fail the test.
+            for(int attempt=0;;attempt++)
+            {
+                try {Directory.Delete(root,true);break;}
+                catch(UnauthorizedAccessException) {if(attempt>=20)throw;Thread.Sleep(100);}
+                catch(IOException) {if(attempt>=20)throw;Thread.Sleep(100);}
+            }
+        }
     }
 
     private static void CheckPacing()
@@ -170,7 +202,17 @@ internal static class EngineTests
             string text = Capture(enginePath, arguments, root);
             Check(text.Contains("Offline Test Song"), "real engine accepts all wrapper flags and extracts normalized CSV without network searches");
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            // Windows can briefly retain the just-exited fixture executable.
+            // Bound retries; a persistent cleanup failure must still fail the test.
+            for(int attempt=0;;attempt++)
+            {
+                try {Directory.Delete(root,true);break;}
+                catch(UnauthorizedAccessException) {if(attempt>=20)throw;Thread.Sleep(100);}
+                catch(IOException) {if(attempt>=20)throw;Thread.Sleep(100);}
+            }
+        }
     }
 
     private static string Capture(string enginePath, string arguments, string workingDirectory)

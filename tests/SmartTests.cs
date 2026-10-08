@@ -62,6 +62,12 @@ internal static class SmartTests
         string duplicate = Row(rows[IndexStore.Key(original)]) + Row(new SavedTrack {Track=original,Path="",State=2,Reason=9});
         File.WriteAllText(Path.Combine(folder, "duplicate.csv"), Header + duplicate, new UTF8Encoding(false));
         Assert(IndexStore.Done(IndexStore.Read(Path.Combine(folder, "duplicate.csv"))[IndexStore.Key(original)]), "A later failed duplicate cannot erase an existing completed path.");
+        foreach(string broken in new[]{"", "wrong,columns\r\n", Header+"partial,row\r\n", Header+"file,artist,album,title,180,0,broken,0\r\n"})
+        {
+            string path=Path.Combine(folder,"broken.csv");File.WriteAllText(path,broken);
+            bool rejected=false;try {IndexStore.Read(path);}catch(InvalidDataException){rejected=true;}
+            Assert(rejected && File.ReadAllText(path)==broken,"Corrupt history is rejected and preserved instead of partially loaded.");
+        }
     }
 
     private static void CheckAliases()
@@ -258,7 +264,7 @@ internal static class SmartTests
         {
             bool checkedHeld=false;
             downloader.Log+=message=>{
-                if(message.StartsWith("Looking up alternate recording names",StringComparison.Ordinal))
+                if(message.StartsWith("Searching for ",StringComparison.Ordinal))
                 {
                     AssertLockHeld(folder);checkedHeld=true;cancellation.Cancel();
                 }

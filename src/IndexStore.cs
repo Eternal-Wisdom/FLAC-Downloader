@@ -25,15 +25,19 @@ namespace PlaylistFlac
             var result = new Dictionary<string, SavedTrack>();
             if (!File.Exists(path)) return result;
             var rows = CsvPlaylist.ParseRows(File.ReadAllText(path, Encoding.UTF8).TrimStart('\uFEFF'), ',');
-            if (rows.Count == 0) return result;
+            if (rows.Count == 0) throw new InvalidDataException("The download index is empty. It was preserved for recovery.");
             var headers = rows[0];
+            string[] required={"filepath","artist","album","title","length","tracktype","state","failurereason"};
+            if(headers.Distinct(StringComparer.Ordinal).Count()!=headers.Count || required.Any(h=>!headers.Contains(h)))
+                throw new InvalidDataException("The download index has missing or duplicate columns. It was preserved for recovery.");
             foreach (var row in rows.Skip(1))
             {
-                if (row.Count < 8) continue;
+                if(row.Count==1 && row[0].Length==0)continue;
+                if (row.Count != headers.Count) throw new InvalidDataException("The download index has an incomplete row. It was preserved for recovery.");
                 Func<string,string> field = name => { int i = headers.IndexOf(name); return i >= 0 && i < row.Count ? row[i] : ""; };
                 int seconds, state, reason;
-                if (!Int32.TryParse(field("length"), out seconds) || !Int32.TryParse(field("state"), out state)) continue;
-                Int32.TryParse(field("failurereason"), out reason);
+                if (!Int32.TryParse(field("length"), out seconds) || !Int32.TryParse(field("state"), out state) || !Int32.TryParse(field("failurereason"), out reason))
+                    throw new InvalidDataException("The download index contains invalid numeric values. It was preserved for recovery.");
                 string file = field("filepath");
                 if (file.Length > 0) file = Path.GetFullPath(Path.Combine(IndexDirectory(path), file.Replace('/', Path.DirectorySeparatorChar)));
                 var value = new SavedTrack { Track = new Track { Title=field("title"), Artist=field("artist"), Album=field("album"), DurationSeconds=seconds }, Path=file, State=state, Reason=reason };

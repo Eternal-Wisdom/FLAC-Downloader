@@ -2,8 +2,12 @@ $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $build=Join-Path $root 'build'
 $dist=Join-Path $root 'dist'
-$version='1.11.0'
+$version='1.12.0'
 if(-not (Test-Path -LiteralPath (Join-Path $build 'FLAC-Downloader.exe'))){throw 'Build the app first.'}
+$receiptPath=Join-Path $build 'tested-build.json'
+if(-not (Test-Path -LiteralPath $receiptPath)){throw 'Run scripts/Test.ps1 successfully before packaging.'}
+$receipt=Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+if($receipt.app -ne (Get-FileHash -LiteralPath (Join-Path $build 'FLAC-Downloader.exe')).Hash -or $receipt.engine -ne (Get-FileHash -LiteralPath (Join-Path $build 'engine/sockseek.exe')).Hash){throw 'The application or engine changed after testing. Run scripts/Test.ps1 again.'}
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $stage=Join-Path $build ('package-'+[Guid]::NewGuid().ToString('N'))
 $app=Join-Path $stage 'FLAC-Downloader'

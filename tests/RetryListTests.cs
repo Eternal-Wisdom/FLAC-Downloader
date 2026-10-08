@@ -48,6 +48,28 @@ internal static class RetryListTests
             paused.Update(playlist,status,null,retryTime);
             saved=serializer.Deserialize<List<RetryEntry>>(File.ReadAllText(queuePath));
             Check(saved[0].Paused && saved[0].LastReason=="Failed: No matching results","ordinary updates preserve pause and failure detail");
+            string validJson=File.ReadAllText(queuePath);
+            var validEntry=saved[0];
+            var corruptLists=new List<string> {
+                "null", "[null]", "[{}]",
+                serializer.Serialize(new[]{validEntry,new RetryEntry {Track=first,Key="wrong identity",NextUtc=retryTime}}),
+                serializer.Serialize(new[]{validEntry,validEntry}),
+                serializer.Serialize(new[]{new RetryEntry {Track=first,Key=IndexStore.Key(first)}})
+            };
+            foreach(string corrupt in corruptLists)
+            {
+                File.WriteAllText(queuePath,corrupt);
+                bool rejected=false;
+                try {new RetryList(root,Path.Combine(root,"music"),playlist);}
+                catch(FormatException) {rejected=true;}
+                Check(rejected,"structurally damaged JSON must stop retry loading");
+                Check(File.ReadAllText(queuePath)==corrupt,"damaged retry history remains unchanged");
+            }
+            File.WriteAllText(queuePath,validJson);
+            var changedPlaylist=new Playlist {Source=playlist.Source,Tracks=new List<Track>{other}};
+            Check(new RetryList(root,Path.Combine(root,"music"),changedPlaylist).Count==0,"valid entries removed from the current playlist remain filtered");
+            File.WriteAllText(queuePath,"[]");
+            Check(new RetryList(root,Path.Combine(root,"music"),playlist).Count==0,"an intentionally empty queue remains valid");
         }
         finally {if(Directory.Exists(root))Directory.Delete(root,true);}
     }

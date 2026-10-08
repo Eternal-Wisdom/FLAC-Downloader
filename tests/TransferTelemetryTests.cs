@@ -21,6 +21,21 @@ internal static class TransferTelemetryTests
             EngineProgress latest=null;engine.Progress+=p=>latest=p;
             Check(engine.TryProgress("{\"type\":\"download_progress\",\"data\":{\"jobId\":\"job-1\",\"bytesTransferred\":4294967296,\"totalBytes\":8589934592,\"percent\":50}}"),"job-only event parses");
             Check(latest.JobId=="job-1" && latest.Title=="" && latest.BytesTransferred==4294967296L && latest.TotalBytes==8589934592L,"64-bit counters retained without inventing song identity");
+            Check(engine.TryProgress("{\"type\":\"download_start\",\"data\":{\"artist\":\"Artist\",\"title\":\"Song\",\"username\":\"SyntheticPeer\",\"filename\":\"Album/Song.flac\",\"extension\":\"flac\",\"size\":1048576}}"),"source event parses");
+            Check(latest.TotalBytes==1048576 && latest.SourceFilename=="Album/Song.flac" && latest.SourceFormat=="flac" && latest.Status.Contains("waiting for bytes"),"source metadata retained without claiming active transfer");
+            var details=new TrackDetails();details.Observe(latest);
+            var track=new Track {Title="Song",Artist="Artist",Album="Album"};
+            string description=details.Describe(track,latest.Status,"Balanced",true);
+            Check(description.Contains("SyntheticPeer") && description.Contains("1.00 MiB") && description.Contains("Not available"),"source details keep unknown progress explicit");
+            details.Observe(new EngineProgress {Type="download_start",Peer="SecondPeer"});
+            description=details.Describe(track,"Waiting","Balanced",true);
+            Check(!description.Contains("SyntheticPeer") && !description.Contains("Album/Song.flac"),"a new source cannot inherit stale metadata");
+        }
+        using(var engine=new DownloadEngine())
+        {
+            engine.Progress+=p=>{throw new FormatException("synthetic subscriber error");};
+            bool propagated=false;try {engine.TryProgress("{\"type\":\"search_start\",\"data\":{\"title\":\"Song\"}}");}catch(FormatException){propagated=true;}
+            Check(propagated,"subscriber errors are not swallowed as malformed JSON");
         }
         foreach(string profile in new[]{"Fast FLAC","Balanced","Prefer high resolution"})
         {
