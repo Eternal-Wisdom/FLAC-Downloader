@@ -52,6 +52,31 @@ internal static class CoverLookupTests
         var throttle=new Handler((request,ct)=>Task.FromResult(new HttpResponseMessage((HttpStatusCode)429)));
         using(var lookup=new CoverLookup(Path.Combine(root,"throttle"),throttle,null))
         {await lookup.FindAsync(track,CancellationToken.None);await lookup.FindAsync(new Track{CoverUrl="https://i.scdn.co/image/other"},CancellationToken.None);Check(throttle.Count==1,"Rate-limit response backs off the service instead of retrying each track.");}
+        DateTime clock=new DateTime(2026,1,1,0,0,0,DateTimeKind.Utc);
+        var delayed=new Handler((request,ct)=>{
+            var response=new HttpResponseMessage((HttpStatusCode)503);
+            response.Headers.RetryAfter=new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromMinutes(10));
+            return Task.FromResult(response);
+        });
+        using(var lookup=new CoverLookup(Path.Combine(root,"retry-after"),delayed,null,()=>clock))
+        {
+            await lookup.FindAsync(track,CancellationToken.None);clock=clock.AddMinutes(9);
+            await lookup.FindAsync(track,CancellationToken.None);Check(delayed.Count==1,"Retry-After suppresses requests throughout the provider cooldown.");
+            clock=clock.AddMinutes(1);await lookup.FindAsync(track,CancellationToken.None);Check(delayed.Count==2,"Transient failures are retried after cooldown, not cached as permanent misses.");
+        }
+        var repeated=new Handler((request,ct)=>Task.FromResult(new HttpResponseMessage((HttpStatusCode)429)));
+        using(var lookup=new CoverLookup(Path.Combine(root,"backoff"),repeated,null,()=>clock))
+        {
+            await lookup.FindAsync(track,CancellationToken.None);clock=clock.AddMinutes(2);
+            await lookup.FindAsync(track,CancellationToken.None);clock=clock.AddMinutes(2);
+            await lookup.FindAsync(track,CancellationToken.None);Check(repeated.Count==2,"Repeated throttling doubles cooldown instead of polling at a fixed interval.");
+            clock=clock.AddMinutes(2);await lookup.FindAsync(track,CancellationToken.None);Check(repeated.Count==3,"Backoff permits another request at its due time.");
+        }
+        using(var dated=new HttpResponseMessage((HttpStatusCode)429))
+        {
+            dated.Headers.RetryAfter=new System.Net.Http.Headers.RetryConditionHeaderValue(new DateTimeOffset(clock.AddMinutes(20)));
+            Check(CoverLookup.RetryDelay(dated,clock).Value==TimeSpan.FromMinutes(20),"HTTP-date Retry-After is respected.");
+        }
         string release="76df3287-6cda-33eb-8e9a-044b5e15ffdd";
         string json="{\"isrc\":\"USAAA2000001\",\"recordings\":[{\"length\":180000,\"artist-credit\":[{\"name\":\"Artist\"}],\"releases\":[{\"id\":\""+release+"\",\"title\":\"Album\"}]}]}";
         var exact=new Track{Title="Song",Artist="Artist",Album="Album",Isrc="USAAA2000001",DurationSeconds=180};

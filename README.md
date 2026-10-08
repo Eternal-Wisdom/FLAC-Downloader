@@ -8,7 +8,7 @@ A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify
 
 ## Download and use
 
-Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest/download/flac-downloader-1.12.0-windows-x64.zip) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
+Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest/download/flac-downloader-1.13.0-windows-x64.zip) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
 
 1. Enter your own Soulseek account. New to Soulseek? Follow the [account setup guide](docs/SOULSEEK-ACCOUNT.md). If another Soulseek client is using it, disconnect that client or use a separate account.
 2. Import a CSV, or configure your own Spotify developer Client ID and connect to load a playlist or album link.
@@ -66,7 +66,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1
 ```
 
-Build downloads the pinned Sockseek 3.0.5 Windows engine and checks the ZIP and executable hashes. Tests use synthetic local data and mock downloads; no account or network transfers are needed after engine setup. Source for the bundled engine is included in `third-party/` and in the portable release. See [release instructions](docs/RELEASING.md).
+Build downloads the pinned Sockseek 3.0.5 Windows engine and checks the ZIP and executable hashes. Tests run in a separate executable against the built app and emit JUnit evidence in `build/test-results.xml` (suite counts, timestamps, revision and hashes). Test code is excluded from the portable app. Tests use synthetic local data and mock downloads; no account or network transfers are needed after engine setup. Source for the bundled engine is included in `third-party/` and in the portable release. See [release instructions](docs/RELEASING.md).
 
 ## Privacy and limitations
 
@@ -77,3 +77,5 @@ The app is Windows-only. Spotify API access is subject to your developer app's c
 ## License and credits
 
 FLAC-Downloader is released under **AGPL-3.0-only**. The independently launched [Sockseek](https://github.com/fiso64/sockseek) engine has its own upstream AGPL license and source. See [third-party notices](THIRD-PARTY-NOTICES.md). Contributions are welcome; please read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Version 1.13 review decisions are documented in [the external-review follow-up](docs/REVIEW-1122.md).

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.13.0
+
+- Keep test code out of the production app; run a separate test executable against the built application.
+- Emit JUnit test evidence with suite counts, timings, revision/tree state and binary hashes; retain CI reports and reject changed reports when packaging.
+- Retain the test process handle so Windows PowerShell 5.1 reports its exit code reliably.
+- Exercise 500 reproducible filename inputs, 300 quoted CSV round trips, malformed CSV, DPAPI failures and writable-state probes.
+- Handle superscript Windows device names and control characters in filenames.
+- Explain unwritable portable locations and passwords saved under another Windows account; preserve unreadable encrypted preferences until replacement.
+- Respect artwork Retry-After headers, extend repeated provider cooldowns exponentially, and identify the project in the User-Agent.
+- Measure synthetic catalog loading and lookup at 50,000 entries; document review recommendations and limits in docs/REVIEW-1122.md.
+
 ## 1.12.0
 
 - Restore track-list, import, and footer layout when panel sizes change after the container layout event. Add resize and minimize/restore regression coverage.

@@ -51,10 +51,23 @@ internal static class RecordingCatalogTests
             using(var cancel=new CancellationTokenSource()) {cancel.Cancel();bool stopped=false;try {catalog.Reuse(reissue,target,cancel.Token);}catch(OperationCanceledException){stopped=true;}Check(stopped,"cancellation stops reuse");}
             Directory.Delete(integrated,true);File.Delete(source);Check(catalog.Reuse(reissue,target,CancellationToken.None)==null,"all registered sources missing falls back to search");
             BenchmarkLookup(root);
+            BenchmarkLargeCatalog(root);
         }
         finally {Directory.Delete(root,true);}
     }
     private static void Check(bool value,string reason){if(!value)throw new Exception("Recording catalog: "+reason);}
+    private static void BenchmarkLargeCatalog(string root)
+    {
+        var rows=Enumerable.Range(0,50000).Select(i=>new CatalogRecording{Track=new Track{Title="Song "+i,Artist="Synthetic artist",Isrc="USAAA26"+i.ToString("D5"),DurationSeconds=180}}).ToList();
+        string folder=Path.Combine(root,"large-benchmark");Directory.CreateDirectory(folder);
+        var serialize=System.Diagnostics.Stopwatch.StartNew();
+        File.WriteAllText(Path.Combine(folder,"recordings.json"),new System.Web.Script.Serialization.JavaScriptSerializer{MaxJsonLength=32*1024*1024}.Serialize(rows));
+        serialize.Stop();var watch=System.Diagnostics.Stopwatch.StartNew();var catalog=new RecordingCatalog(folder);watch.Stop();double load=watch.Elapsed.TotalMilliseconds;
+        watch.Restart();
+        for(int i=0;i<1000;i++) {int n=(i*47)%50000;Check(catalog.Matching(new Track{Title="Song "+n,Artist="Synthetic artist",Isrc="USAAA26"+n.ToString("D5"),DurationSeconds=181}).Count()==1,"50,000-entry lookup retains matching accuracy");}
+        watch.Stop();
+        File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"catalog-performance.txt"),String.Format(System.Globalization.CultureInfo.InvariantCulture,"\r\n50,000 synthetic entries: JSON serialization/write {0:F2} ms; deserialize/index {1:F2} ms; 1,000 indexed lookups {2:F2} ms; JSON {3} bytes. No audio files or network used; timings are observations, not thresholds.",serialize.Elapsed.TotalMilliseconds,load,watch.Elapsed.TotalMilliseconds,new FileInfo(Path.Combine(folder,"recordings.json")).Length));
+    }
     private static void BenchmarkLookup(string root)
     {
         var rows=new List<CatalogRecording>();
