@@ -4,6 +4,7 @@
 
 - Keep test code out of the production app; run a separate test executable against the built application.
 - Emit JUnit test evidence with suite counts, timings, revision/tree state and binary hashes; retain CI reports and reject changed reports when packaging.
+- Retain the test process handle so Windows PowerShell 5.1 reports its exit code reliably.
 - Exercise 500 reproducible filename inputs, 300 quoted CSV round trips, malformed CSV, DPAPI failures and writable-state probes.
 - Handle superscript Windows device names and control characters in filenames.
 - Explain unwritable portable locations and passwords saved under another Windows account; preserve unreadable encrypted preferences until replacement.
