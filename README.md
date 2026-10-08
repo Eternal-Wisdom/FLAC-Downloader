@@ -8,7 +8,7 @@ A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify
 
 ## Download and use
 
-Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest/download/flac-downloader-1.11.0-windows-x64.zip) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
+Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest/download/flac-downloader-1.12.0-windows-x64.zip) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
 
 1. Enter your own Soulseek account. New to Soulseek? Follow the [account setup guide](docs/SOULSEEK-ACCOUNT.md). If another Soulseek client is using it, disconnect that client or use a separate account.
 2. Import a CSV, or configure your own Spotify developer Client ID and connect to load a playlist or album link.
@@ -29,7 +29,7 @@ Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, 
 
 Formerly named Playlist FLAC. Existing settings and library metadata remain compatible.
 
-The local v1.12 development candidate adds track/source details and stricter failure recovery. See the [code review and recommendation decisions](docs/CODE-REVIEW.md). The release download above remains v1.11 until a new release is published.
+Version 1.12 adds track/source details, right-click file actions, layout recovery, and stricter download failure handling. See the [code review and recommendation decisions](docs/CODE-REVIEW.md) and [validation results and limits](docs/VALIDATION.md).
 
 ## Clean folder layout
 
