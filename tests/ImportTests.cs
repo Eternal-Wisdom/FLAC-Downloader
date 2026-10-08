@@ -18,6 +18,13 @@ namespace PlaylistFlac
         public static void Run()
         {
             checks = 0;
+            Equal("",SpotifyImporter.ClientIdForStorage("spak_synthetic_fixture"),"Soloist secrets are not persisted as client IDs");
+            Equal("",SpotifyImporter.ClientIdForStorage(null),"absent client ID");
+            Equal(new string('a',32),SpotifyImporter.ClientIdForStorage(" "+new string('a',32)+" "),"valid client ID retained");
+            using(var importer=new SpotifyImporter()) {
+                try {importer.ConnectAsync("spak_synthetic_fixture",CancellationToken.None).GetAwaiter().GetResult();throw new Exception("Soloist key accepted");}
+                catch(ArgumentException ex) {Equal(true,ex.Message.Contains("Soloist") && !ex.Message.Contains("synthetic_fixture"),"Soloist rejection explains credential type without echoing secret");}
+            }
             TestCsv();
             TestUrls();
             TestSpotifyPages();

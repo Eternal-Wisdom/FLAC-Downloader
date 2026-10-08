@@ -264,7 +264,7 @@ internal static class SmartTests
         {
             bool checkedHeld=false;
             downloader.Log+=message=>{
-                if(message.StartsWith("Looking up alternate recording names",StringComparison.Ordinal))
+                if(message.StartsWith("Searching for ",StringComparison.Ordinal))
                 {
                     AssertLockHeld(folder);checkedHeld=true;cancellation.Cancel();
                 }

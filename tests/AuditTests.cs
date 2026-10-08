@@ -74,6 +74,11 @@ namespace PlaylistFlac
                 File.WriteAllBytes(Path.Combine(recovery,"recoverable-copy.flac"),original);
                 string groupedRecovery=RecoveryFolders.Prepare(root);
                 File.WriteAllBytes(Path.Combine(groupedRecovery,"archived-copy.flac"),original);
+                foreach(string excluded in new[]{".incoming",".search",".naming-backup-old",".artwork-backup-old"})
+                {
+                    string staging=Path.Combine(root,excluded);Directory.CreateDirectory(staging);
+                    File.WriteAllBytes(Path.Combine(staging,"unfinished.flac"),new byte[]{1,2,3});
+                }
                 FlacAuditResult result = FlacAudit.CheckFolder(root, CancellationToken.None);
                 Assert(result.TotalFiles == 14 && result.ValidHeaders == 3 && result.InvalidHeaders == 11,
                     "Recursive scanning must count valid, invalid and uppercase FLAC extensions correctly.");
@@ -88,6 +93,12 @@ namespace PlaylistFlac
                     "The audit must never modify audio files.");
 
                 string previousReport = csv;
+                using(var held=new FileStream(Path.Combine(root,".download.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))
+                {
+                    bool blocked=false;
+                    try {FlacAudit.CheckFolder(root,CancellationToken.None);}catch(IOException){blocked=true;}
+                    Assert(blocked && File.ReadAllText(result.ReportPath)==previousReport,"An active downloader blocks auditing and preserves the previous report.");
+                }
                 using (CancellationTokenSource cancel = new CancellationTokenSource())
                 {
                     cancel.Cancel();
