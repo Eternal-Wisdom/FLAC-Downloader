@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.1
+
+- Keep the Activity window synchronized with new log entries through the existing 200 ms UI refresh.
+- Keep app controls usable while Activity is open, reuse the window, and disconnect its log subscription when closed.
+
 ## 1.14.0
 
 - Export confirmed missing songs as a reusable Unicode CSV from the queue menu; repeated recordings are exported once. Ready and conflicting-version rows are excluded.

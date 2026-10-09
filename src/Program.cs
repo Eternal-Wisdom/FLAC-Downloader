@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -124,6 +124,7 @@ namespace PlaylistFlac
         private static readonly Color Muted = Color.FromArgb(157, 171, 187);
         private static readonly Color Accent = Color.FromArgb(136, 231, 185);
         private TextBox source, username, password, clientId, destination, activity;
+        private ActivityLogWindow activityWindow;
         private Button load, import, connect, start, stop, browse, open, verify, retry, fix;
         private CheckBox remember, strict;
         private CheckBox autoRetry;
@@ -161,7 +162,7 @@ namespace PlaylistFlac
         {
             preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.14"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.14.1"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -225,11 +226,7 @@ namespace PlaylistFlac
                 autoRetry.SetBounds(0,228,w,28);autoRetry.Text="Automatically retry unavailable songs while open";
                 activity.Visible=false;
             };
-            var activityButton=ButtonAt(header,"Activity",0,0,100,false);activityButton.Click+=delegate {
-                using(var dialog=new Form {Text="Activity log",Size=new Size(800,440),BackColor=Background,StartPosition=FormStartPosition.CenterParent}) {
-                    var log=new TextBox {Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,BackColor=Surface,ForeColor=Muted,BorderStyle=BorderStyle.None,Font=new Font("Segoe UI",10),Text=activity.Text};dialog.Controls.Add(log);dialog.ShowDialog(this);
-                }
-            };
+            var activityButton=ButtonAt(header,"Activity",0,0,100,false);activityButton.Click+=delegate { ShowActivityLog(); };
             bool arranging=false;
             Action arrangeCurrent=delegate {
                 if(arranging)return;
@@ -453,6 +450,15 @@ namespace PlaylistFlac
             if (IsDisposed || Disposing) return;
             if (String.IsNullOrWhiteSpace(message)) return;
             lock(logGate) { pendingLogs.Enqueue(DateTime.Now.ToString("HH:mm:ss") + "  " + message); while(pendingLogs.Count>160)pendingLogs.Dequeue(); }
+        }
+        private void ShowActivityLog()
+        {
+            FlushLog();
+            if(activityWindow==null || activityWindow.IsDisposed)
+                activityWindow=new ActivityLogWindow(activity,Surface,Muted) {BackColor=Background};
+            if(!activityWindow.Visible)activityWindow.Show(this);
+            if(activityWindow.WindowState==FormWindowState.Minimized)activityWindow.WindowState=FormWindowState.Normal;
+            activityWindow.Activate();
         }
         private void FlushLog()
         {
