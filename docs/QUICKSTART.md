@@ -23,3 +23,7 @@ Right-click one song and choose **Show in folder** to open Explorer with its sav
 Right-click the song list and choose **Export missing songs as CSV** to save confirmed failed songs for another search or later import. Ready songs and Review versions entries are excluded. The CSV contains music metadata, so treat it as private.
 
 For a completed song, open **Track and source details** (right-click or Enter). When the app is idle, it reads that file's header in the background and shows its bit depth, sample rate, and channels. These facts do not verify the audio frames or the recording's origin.
+
+### Live Activity log
+
+Open Activity to follow new log entries as they arrive (refreshed approximately every 200 ms). The window stays live during downloads and library operations, and the main app controls remain usable. Closing and reopening Activity shows the latest retained entries; the log keeps the most recent 160 lines.

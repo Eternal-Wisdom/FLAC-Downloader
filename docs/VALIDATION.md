@@ -1,5 +1,10 @@
 # Release validation
 
+## 2026-10-09 local 1.14.1 Activity fix
+
+The built app passed 31 offline suites with zero failures and skips. A real WinForms message-loop regression confirms that worker-thread log entries reach the open Activity window through the existing 200 ms UI timer, the main controls stay enabled, repeated opening reuses one window, closing/reopening retains recent entries, and output remains capped at 160 lines. The test restores its UI synchronization context so subsequent asynchronous suites remain isolated. No new live downloads were needed for this display-only change; 1.14 live results below apply to the unchanged download workflow. Hosted validation is recorded on the release pull request.
+
+
 ## 2026-10-09 local 1.14 follow-up
 
 The built production app passed 30 offline suites, 0 failures and 0 skipped suites under Windows PowerShell 5.1. Added tests verify missing-recording selection, downloaded reissue suppression, Japanese/quoted CSV reimports, honest FLAC header descriptions, and bounded, paced recording lookups when MusicBrainz ISRC responses omit releases. Wrong recording IDs/ISRCs and malformed responses cannot supply artwork; transient lookup failures are not cached as permanent misses.
