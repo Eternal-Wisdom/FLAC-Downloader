@@ -33,7 +33,8 @@ internal static class TestRunner
             {"LibraryLayout",LibraryLayoutTests.Run}, {"TrackFileActions",TrackFileActionsTests.Run},
             {"RealEngine",delegate { EngineTests.CheckRealEngine(engine); }},
             {"ParallelDownloads",delegate { ParallelDownloadTests.Run(engine); }},
-            {"LocalSettings",LocalSettings}, {"InputProperties",InputPropertyTests.Run}, {"Environment",EnvironmentTests.Run}
+            {"LocalSettings",LocalSettings}, {"InputProperties",InputPropertyTests.Run}, {"Environment",EnvironmentTests.Run},
+            {"MissingTrackExport",MissingTrackExportTests.Run}
         };
         var results = new List<Result>(); DateTime started = DateTime.UtcNow;
         foreach (var suite in suites)
