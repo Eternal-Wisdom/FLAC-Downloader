@@ -61,7 +61,7 @@ namespace PlaylistFlac
             utcNow = clock;
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("FLAC-Downloader/1.13 (https://github.com/Eternal-Wisdom/FLAC-Downloader)");
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("FLAC-Downloader/1.14 (https://github.com/Eternal-Wisdom/FLAC-Downloader)");
         }
 
         public async Task<CoverLookupResult> FindAsync(Track track, CancellationToken ct)
@@ -158,7 +158,8 @@ namespace PlaylistFlac
 
         private async Task<string> RecordingsAsync(string isrc, CancellationToken ct)
         {
-            string path = Path.Combine(cacheDirectory, "isrc-" + isrc + ".json"), json;
+            // Older cached ISRC responses can lack releases even when requested.
+            string path = Path.Combine(cacheDirectory, "isrc-v2-" + isrc + ".json"), json;
             if (TryRecordingsCache(path, isrc, out json)) return json;
             await musicBrainzGate.WaitAsync(ct).ConfigureAwait(false);
             try
@@ -166,17 +167,13 @@ namespace PlaylistFlac
                 ct.ThrowIfCancellationRequested();
                 if (TryRecordingsCache(path, isrc, out json)) return json;
                 if (Blocked("musicbrainz")) return null;
-                if (testPacing != null) await testPacing(ct).ConfigureAwait(false);
-                else
-                {
-                    int delay = (int)Math.Max(0, 1100 - (DateTime.UtcNow - lastMusicBrainzRequest).TotalMilliseconds);
-                    if (delay > 0) await Task.Delay(delay, ct).ConfigureAwait(false);
-                }
-                lastMusicBrainzRequest = DateTime.UtcNow;
+                await PaceMusicBrainzAsync(ct).ConfigureAwait(false);
                 FetchResult result = await FetchAsync(new Uri("https://musicbrainz.org/ws/2/isrc/" + isrc + "?fmt=json&inc=artists%2Breleases"), MaximumJsonBytes, "musicbrainz", ct).ConfigureAwait(false);
                 if (result.Bytes == null && !result.PermanentMiss) return null;
                 json = result.Bytes == null ? "{\"isrc\":\"" + isrc + "\",\"recordings\":[]}" : Encoding.UTF8.GetString(result.Bytes);
                 if (!ValidRecordings(json, isrc)) return null;
+                json = await CompleteReleasesAsync(json, isrc, ct).ConfigureAwait(false);
+                if (json == null) return null;
                 ct.ThrowIfCancellationRequested();
                 try { AtomicBytes(path, Encoding.UTF8.GetBytes(json)); }
                 catch (IOException) { }
@@ -184,6 +181,52 @@ namespace PlaylistFlac
                 return json;
             }
             finally { musicBrainzGate.Release(); }
+        }
+
+        private async Task PaceMusicBrainzAsync(CancellationToken ct)
+        {
+            if (testPacing != null) await testPacing(ct).ConfigureAwait(false);
+            else
+            {
+                int delay = (int)Math.Max(0, 1100 - (DateTime.UtcNow - lastMusicBrainzRequest).TotalMilliseconds);
+                if (delay > 0) await Task.Delay(delay, ct).ConfigureAwait(false);
+            }
+            lastMusicBrainzRequest = DateTime.UtcNow;
+        }
+
+        // Some live ISRC responses omit releases. Resolve at most three identified
+        // recordings, under the same provider gate and pacing as the ISRC request.
+        private async Task<string> CompleteReleasesAsync(string json, string isrc, CancellationToken ct)
+        {
+            var serializer = new JavaScriptSerializer { MaxJsonLength = MaximumJsonBytes };
+            var data = (Dictionary<string, object>)serializer.DeserializeObject(json);
+            var recordings = (object[])data["recordings"];
+            int requestsMade = 0;
+            for (int i = 0; i < recordings.Length && requestsMade < 3; i++)
+            {
+                var recording = recordings[i] as Dictionary<string, object>;
+                object releases; Guid id;
+                if (recording == null || recording.TryGetValue("releases", out releases) && releases is object[] ||
+                    !Guid.TryParse(Text(recording, "id"), out id)) continue;
+                if (Blocked("musicbrainz")) return null;
+                await PaceMusicBrainzAsync(ct).ConfigureAwait(false);
+                requestsMade++;
+                FetchResult result = await FetchAsync(new Uri("https://musicbrainz.org/ws/2/recording/" + id.ToString("D") + "?fmt=json&inc=artists%2Breleases%2Bisrcs"), MaximumJsonBytes, "musicbrainz", ct).ConfigureAwait(false);
+                if (result.Bytes == null) { if (!result.PermanentMiss) return null; continue; }
+                try
+                {
+                    var full = serializer.DeserializeObject(Encoding.UTF8.GetString(result.Bytes)) as Dictionary<string, object>;
+                    object codes; Guid returned;
+                    if (full != null && Guid.TryParse(Text(full, "id"), out returned) && returned == id &&
+                        full.TryGetValue("isrcs", out codes) && codes is object[] &&
+                        ((object[])codes).Any(code => String.Equals(Convert.ToString(code), isrc, StringComparison.OrdinalIgnoreCase)))
+                        recordings[i] = full;
+                }
+                catch (ArgumentException) { }
+                catch (InvalidOperationException) { }
+            }
+            try { return serializer.Serialize(data); }
+            catch (InvalidOperationException) { return null; }
         }
 
         private static bool TryRecordingsCache(string path, string isrc, out string json)

@@ -87,6 +87,29 @@ internal static class CoverLookupTests
         var fallback=new Handler((request,ct)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=request.RequestUri.Host=="musicbrainz.org"?(HttpContent)new StringContent(json):new ByteArrayContent(png)}));
         using(var lookup=new CoverLookup(Path.Combine(root,"fallback"),fallback,ct=>Task.FromResult(0)))
         {var found=await lookup.FindAsync(exact,CancellationToken.None);Check(found!=null && found.ReleaseId==release && fallback.Count==2,"Verified ISRC metadata leads to the matching release front cover.");}
+        string recordingId="8f3471b5-7e6a-48da-86a9-c1c07a0f47ae";
+        string partial="{\"isrc\":\"USAAA2000001\",\"recordings\":[{\"id\":\""+recordingId+"\"}]}";
+        string full="{\"id\":\""+recordingId+"\",\"isrcs\":[\"USAAA2000001\"],\"length\":180000,\"artist-credit\":[{\"name\":\"Artist\"}],\"releases\":[{\"id\":\""+release+"\",\"title\":\"Album\"}]}";
+        int paced=0;
+        var hydration=new Handler((request,ct)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=request.RequestUri.Host!="musicbrainz.org"?(HttpContent)new ByteArrayContent(png):new StringContent(request.RequestUri.AbsolutePath.Contains("/recording/")?full:partial)}));
+        using(var lookup=new CoverLookup(Path.Combine(root,"hydration"),hydration,ct=>{paced++;return Task.FromResult(0);}))
+        {
+            Check(await lookup.FindAsync(exact,CancellationToken.None)!=null && hydration.Count==3 && paced==2,"Omitted releases are resolved through a paced recording lookup.");
+            Check(await lookup.FindAsync(exact,CancellationToken.None)!=null && hydration.Count==3,"Completed metadata and artwork are cached.");
+        }
+        foreach(string bad in new[]{full.Replace("USAAA2000001","USAAA2000002"),full.Replace(recordingId,release),"invalid JSON"})
+        {
+            var mismatch=new Handler((request,ct)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(request.RequestUri.AbsolutePath.Contains("/recording/")?bad:partial)}));
+            using(var lookup=new CoverLookup(Path.Combine(root,Guid.NewGuid().ToString("N")),mismatch,ct=>Task.FromResult(0)))
+                Check(await lookup.FindAsync(exact,CancellationToken.None)==null && mismatch.Count==2,"Unverified recording details cannot supply artwork.");
+        }
+        string many="{\"isrc\":\"USAAA2000001\",\"recordings\":["+String.Join(",",Enumerable.Repeat("{\"id\":\""+recordingId+"\"}",10))+ "]}";
+        var bounded=new Handler((request,ct)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(request.RequestUri.AbsolutePath.Contains("/recording/")?"{}":many)}));
+        using(var lookup=new CoverLookup(Path.Combine(root,"bounded"),bounded,ct=>Task.FromResult(0)))
+            Check(await lookup.FindAsync(exact,CancellationToken.None)==null && bounded.Count==4,"One ISRC lookup makes at most three recording follow-ups.");
+        var transient=new Handler((request,ct)=>Task.FromResult(new HttpResponseMessage(request.RequestUri.AbsolutePath.Contains("/recording/")?HttpStatusCode.ServiceUnavailable:HttpStatusCode.OK){Content=new StringContent(partial)}));
+        using(var lookup=new CoverLookup(Path.Combine(root,"transient-hydration"),transient,ct=>Task.FromResult(0)))
+            Check(await lookup.FindAsync(exact,CancellationToken.None)==null && Directory.GetFiles(Path.Combine(root,"transient-hydration"),"isrc*.json").Length==0,"Transient recording lookup failure is not cached as missing artwork.");
     }
     private sealed class Handler:HttpMessageHandler
     {
