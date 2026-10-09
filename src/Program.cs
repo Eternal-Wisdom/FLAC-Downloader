@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -161,7 +161,7 @@ namespace PlaylistFlac
         {
             preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.13"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.14"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -300,6 +300,9 @@ namespace PlaylistFlac
             copyTitle.Click+=delegate {if(tracks.SelectedItems.Count>0)Clipboard.SetText(String.Join(Environment.NewLine,tracks.SelectedItems.Cast<ListViewItem>().Select(i=>((Track)i.Tag).Title+" — "+((Track)i.Tag).Artist)));};
             trackMenu.Opening+=delegate {downloadSelected.Enabled=!busy && tracks.SelectedItems.Count>0;copyTitle.Enabled=tracks.SelectedItems.Count>0;};
             tracks.ContextMenuStrip=trackMenu;
+            var exportMissing=trackMenu.Items.Add("Export missing songs as CSV...");
+            exportMissing.Click+=delegate {ExportMissingSongs();};
+            trackMenu.Opening+=delegate {exportMissing.Enabled=!busy && !preview && playlist!=null;};
             trackMenu.Items.Add(new ToolStripSeparator());
             var showFile=trackMenu.Items.Add("Show in folder");
             var recycleFile=trackMenu.Items.Add("Move to Recycle Bin...");
@@ -624,7 +627,35 @@ namespace PlaylistFlac
             TrackDetails details;if(!sourceDetails.TryGetValue(IndexStore.Key(track),out details))details=new TrackDetails();
             using(var window=new Form {Text="Track and source details",StartPosition=FormStartPosition.CenterParent,Size=new Size(650,540),MinimumSize=new Size(440,340),BackColor=Background,ForeColor=Color.White})
             using(var text=new TextBox {Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Dock=DockStyle.Fill,BackColor=Surface,ForeColor=Color.White,Font=new Font("Segoe UI",10),BorderStyle=BorderStyle.None,Text=details.Describe(track,row.SubItems[4].Text,runProfile ?? Convert.ToString(quality.SelectedItem),runProfile==null ? strict.Checked : runStrict)})
-            {text.AccessibleName="Track, selected source, and matching policy";window.Controls.Add(text);window.ShowDialog(this);}
+            {
+                text.AccessibleName="Track, selected source, and matching policy";window.Controls.Add(text);
+                // Inspect one completed file off the UI thread; never scan the library here.
+                string folder=currentFolder;Playlist collection=playlist;
+                if(!preview && !busy && row.SubItems[4].Text=="Downloaded" && folder!=null)
+                    window.Shown+=async delegate {
+                        text.AppendText("\r\nReading local FLAC header...\r\n");
+                        string description=await Task.Run(()=> {
+                            try {return TrackDetails.DescribeLocalHeader(TrackFileActions.Resolve(folder,collection,track));}
+                            catch(Exception ex) {if(ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is System.Security.SecurityException)return "Local FLAC header: unavailable.\r\n";throw;}
+                        });
+                        if(!window.IsDisposed && !text.IsDisposed)text.AppendText(description);
+                    };
+                window.ShowDialog(this);
+            }
+        }
+        private void ExportMissingSongs()
+        {
+            if(busy || preview || playlist==null)return;
+            try {
+                RestoreStatus();
+                var states=tracks.Items.Cast<ListViewItem>().ToDictionary(r=>IndexStore.Key((Track)r.Tag),r=>r.SubItems[4].Text);
+                // Rows already represent recording groups, including repeated album editions.
+                var collection=new Playlist {Tracks=tracks.Items.Cast<ListViewItem>().Select(r=>(Track)r.Tag).ToList()};
+                var missing=MissingTrackExport.Select(collection,states);
+                if(missing.Tracks.Count==0){MessageBox.Show(this,"There are no confirmed missing songs to export. Ready and Review versions entries are excluded.","Export missing songs");return;}
+                using(var dialog=new SaveFileDialog {Filter="CSV tracklists (*.csv)|*.csv",FileName="missing-songs.csv",Title="Export missing songs (contains your song list)",OverwritePrompt=true})
+                    if(dialog.ShowDialog(this)==DialogResult.OK){CsvPlaylist.Write(dialog.FileName,missing);status.Text="Exported "+missing.Tracks.Count+" missing songs";}
+            } catch(Exception ex){ShowError("Missing songs could not be exported: "+ex.Message);}
         }
         private static void AddRow(Dictionary<string,List<ListViewItem>> map,string key,ListViewItem row)
         { List<ListViewItem> group;if(!map.TryGetValue(key,out group)){group=new List<ListViewItem>();map.Add(key,group);}group.Add(row); }

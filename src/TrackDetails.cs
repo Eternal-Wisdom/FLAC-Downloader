@@ -1,12 +1,19 @@
 using System;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 
 namespace PlaylistFlac
 {
     // Session-only information. Peer names and remote paths are not exported.
     internal sealed class TrackDetails
     {
+        internal static string DescribeLocalHeader(string path)
+        {
+            var header=FlacAudit.CheckFile(path,CancellationToken.None);
+            if(!header.IsValid)return "Local FLAC header: unreadable or invalid. Run Check files for details.\r\n";
+            return "Local FLAC header: "+header.BitsPerSample+"-bit / "+(header.SampleRateHz/1000.0).ToString("0.###",CultureInfo.InvariantCulture)+" kHz / "+header.Channels+" channel(s).\r\nHeader facts only; audio frames have not been decoded and lossless origin is not proven.\r\n";
+        }
         private string peer, filename, format;
         private long total, transferred;
         private bool hasProgress;
