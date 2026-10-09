@@ -19,3 +19,7 @@ Double-click a track, select it and press Enter, or choose **Track and source de
 ## Find or remove a downloaded song
 
 Right-click one song and choose **Show in folder** to open Explorer with its saved FLAC selected. Choose **Move to Recycle Bin...** to remove that file after confirmation; Windows may also show its own confirmation or cancellation dialog. The song stays in the tracklist so you can download it again. Automatic retries pause after you confirm removal, and the collection's saved status and playable playlist are refreshed. Album reissues can share one file, so removing it affects every entry using that file. These actions are unavailable while the app is busy or multiple rows are selected. If the song has no saved file, or multiple possible files, the app explains the problem rather than guessing a filename.
+
+Right-click the song list and choose **Export missing songs as CSV** to save confirmed failed songs for another search or later import. Ready songs and Review versions entries are excluded. The CSV contains music metadata, so treat it as private.
+
+For a completed song, open **Track and source details** (right-click or Enter). When the app is idle, it reads that file's header in the background and shows its bit depth, sample rate, and channels. These facts do not verify the audio frames or the recording's origin.

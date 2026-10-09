@@ -1,5 +1,15 @@
 # Release validation
 
+## 2026-10-09 local 1.14 follow-up
+
+The built production app passed 30 offline suites, 0 failures and 0 skipped suites under Windows PowerShell 5.1. Added tests verify missing-recording selection, downloaded reissue suppression, Japanese/quoted CSV reimports, honest FLAC header descriptions, and bounded, paced recording lookups when MusicBrainz ISRC responses omit releases. Wrong recording IDs/ISRCs and malformed responses cannot supply artwork; transient lookup failures are not cached as permanent misses.
+
+Live CSV/Soulseek tests completed three distinct recordings, including Japanese, in isolated temporary storage. The Japanese recording was temporarily unavailable on the first search and completed on the next attempt. Two simultaneous transfers were observed, with a peak sampled aggregate rate of approximately 12.4 MiB/s; this is not a sustained throughput benchmark or a promise of peer availability. Restarting the completed collection performed zero searches and created no duplicates. Unavailable-song export/reimport, scheduled retry timing, cancellation and preservation of completed work passed. All three audio files and the artwork-modified copy fully decoded and matched their embedded audio MD5 values.
+
+Direct artwork retrieval and insertion passed. The live MusicBrainz/Cover Art Archive test exposed omitted release data in an ISRC response; the bounded recording follow-up fix retrieved the verified album cover successfully, and cache reuse passed. Native interface tests confirmed local header details and Japanese/quoted missing-song CSV export and reimport using synthetic data and blank credentials.
+
+Release scope is CSV/Soulseek. Authenticated Spotify playlist/album import remains untested because a Web API Client ID is not configured. Native Explorer/Recycle Bin actions have offline logic coverage but were not exercised in this follow-up. These results do not establish lossless source provenance, twenty simultaneous transfers, or correctness on every peer and Windows environment. No private music library was used. See [proposal decisions](REVIEW-PROPOSED-FUNCTIONS.md).
+
 ## 2026-10-09 local 1.13 follow-up
 
 The separate test runner passed 29 suites with 0 failures and 0 skipped suites against the built production assembly. Counts represent suites, each containing multiple assertions. `build/test-results.xml` records per-suite durations, UTC timestamp, app/engine/runner hashes, local revision and whether the working tree is modified. The production-type check found no test classes in the app. No new live downloads or private-library tests were performed; earlier live results below apply to 1.12. Hosted CI results are recorded separately on the release pull request.
