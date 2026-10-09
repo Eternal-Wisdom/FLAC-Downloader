@@ -22,7 +22,7 @@ internal static class TestRunner
         string root = AppDomain.CurrentDomain.BaseDirectory;
         string engine = Path.Combine(root, "engine", "sockseek.exe");
         var suites = new Dictionary<string, Action> {
-            {"WindowLayout",WindowLayoutTests.Run}, {"Import",ImportTests.Run}, {"SearchNames",SearchNameTests.Run},
+            {"WindowLayout",WindowLayoutTests.Run}, {"ActivityLog",ActivityLogTests.Run}, {"Import",ImportTests.Run}, {"SearchNames",SearchNameTests.Run},
             {"Engine",EngineTests.Run}, {"Audit",AuditTests.Run}, {"RecordingIdentity",RecordingIdentityTests.Run},
             {"FlacIdentity",FlacIdentityTests.Run}, {"FlacArtwork",FlacArtworkTests.Run}, {"CoverLookup",CoverLookupTests.Run},
             {"ArtworkLibrary",ArtworkLibraryTests.Run}, {"ArtworkPerformance",ArtworkPerformanceTests.Run},
