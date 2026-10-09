@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.14.0
+
+- Export confirmed missing songs as a reusable Unicode CSV from the queue menu; repeated recordings are exported once. Ready and conflicting-version rows are excluded.
+- Track details can inspect a completed file's FLAC header asynchronously and show bit depth, sample rate, and channel count without claiming lossless provenance.
+- Resolve missing release data from MusicBrainz ISRC responses through at most three paced, identity-checked recording lookups. Refresh older partial metadata caches.
+- Reviewed the proposed-functions report; documented acceptance criteria and remaining live test gaps.
+
+- Pin GitHub build actions to verified release commits, disable persisted checkout credentials, and prepare monthly grouped Dependabot updates for review.
+- Cancel superseded CI runs for the same event/ref and bound build jobs to 15 minutes.
+- Document the second external review and why its speculative rewrite and source integrations are deferred.
+
 ## 1.13.0
 
 - Keep test code out of the production app; run a separate test executable against the built application.
