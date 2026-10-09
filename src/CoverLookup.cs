@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -61,7 +61,7 @@ namespace PlaylistFlac
             utcNow = clock;
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("FLAC-Downloader/1.14 (https://github.com/Eternal-Wisdom/FLAC-Downloader)");
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("FLAC-Downloader/1.14.1 (https://github.com/Eternal-Wisdom/FLAC-Downloader)");
         }
 
         public async Task<CoverLookupResult> FindAsync(Track track, CancellationToken ct)
