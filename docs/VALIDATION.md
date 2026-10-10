@@ -1,5 +1,13 @@
 # Release validation
 
+## 2026-10-10 local 1.15.0 candidate
+
+The production build passed 33 offline suites with zero failures and skips. New coverage checks album counts and CSV position round trips, Unicode filtering, same-title artists, hidden-row status restoration, live hidden-song completion, paused-log catch-up, and read-only repair plans. A 5,000-song queue completed twenty search/reset operations in approximately 3.5 seconds on this machine (an early candidate measurement, not a transfer-speed benchmark). Synthetic default and narrow-window renders were inspected; a native combo-box contrast issue was corrected.
+
+A separate integration run against the official FLAC 1.5.0 Windows x64 decoder passed generated audio and rejected corrupted and truncated copies whose STREAMINFO headers still passed. Cancellation before scanning and preservation of original bytes were verified. The archive was checked against Xiph's published SHA-256. The optional decoder is not bundled. Reproduce this integration with Windows PowerShell and `scripts/Test-AudioDecoder.ps1 -Decoder <path-to-flac.exe>` after building.
+
+This revision has no new live Soulseek throughput claim. The download engine and concurrency policy are unchanged; earlier live results remain historical evidence only. Authenticated Spotify import still needs a Web API Client ID and remains a known live-test gap. No private music, credentials, or personal settings were used for these tests. See [implementation decisions](REVIEW-1.15.md).
+
 ## 2026-10-09 local 1.14.1 Activity fix
 
 The built app passed 31 offline suites with zero failures and skips. A real WinForms message-loop regression confirms that worker-thread log entries reach the open Activity window through the existing 200 ms UI timer, the main controls stay enabled, repeated opening reuses one window, closing/reopening retains recent entries, and output remains capped at 160 lines. The test restores its UI synchronization context so subsequent asynchronous suites remain isolated. No new live downloads were needed for this display-only change; 1.14 live results below apply to the unchanged download workflow. Hosted validation is recorded on the release pull request.
