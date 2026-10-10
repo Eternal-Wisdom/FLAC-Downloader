@@ -27,3 +27,22 @@ For a completed song, open **Track and source details** (right-click or Enter). 
 ### Live Activity log
 
 Open Activity to follow new log entries as they arrive (refreshed approximately every 200 ms). The window stays live during downloads and library operations, and the main app controls remain usable. Closing and reopening Activity shows the latest retained entries; the log keeps the most recent 160 lines.
+
+
+## Finding songs and reviewing albums
+
+Use **Find** to search titles, artists, and source album names. **Ctrl+F** focuses it; **Escape** clears it. The status menu offers All songs, Downloading, Waiting, Missing, Completed, and Review. The count shows visible songs / all recording groups. Waiting includes ready songs and reported peer waits; it does not invent a peer queue position. Filters only change the view: Download FLAC still handles the collection, while Download selected songs handles your selection.
+
+Right-click the list and choose **Album availability** to see imported songs grouped by artist and album. Disc and track positions are used when supplied; CSV accepts `disc_number` and `track_number`. This is not a promise that a partial playlist contains an entire published album or that files came from one release/master.
+
+## Previewing repairs
+
+**Fix library** first displays a read-only plan of duplicate copies to archive and proposed filenames. Close the preview to cancel, or choose Apply repairs. It lists names before duplicate consolidation, so consolidation can reduce that list. The app rechecks files on application. Artwork availability is checked during repair; the preview does not promise a cover for every file. Existing recovery maps and copies remain available; there is no new one-click whole-repair undo.
+
+## Full audio integrity check
+
+**Check files** offers Quick header check or Full audio check. Full audio check asks for the official FLAC project's `flac.exe`, available from [Xiph's FLAC releases](https://github.com/xiph/flac/releases). Extract the Windows tools and select the Win64 executable. No decoder is bundled or automatically fetched.
+
+The full check runs one decoder process at a time in test mode, treats decoder warnings as review items, supports Stop, and limits each file to ten minutes. It never writes decoded audio. Results go to `.playlist-flac/FLAC-audio-check.csv`; the quick report remains `FLAC-check.csv`. It can detect corrupt/truncated frames that a header scan misses, but cannot prove lossless source provenance. Full checks read the entire audio file, so they can take much longer than header checks.
+
+Uncheck **Follow new messages** in Activity to hold the displayed text while reading. Logging continues; checking it again catches up to the latest 160 retained messages.

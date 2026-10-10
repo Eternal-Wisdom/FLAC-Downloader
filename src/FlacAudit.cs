@@ -31,7 +31,7 @@ namespace PlaylistFlac
     {
         // This checks the first metadata block only. It does not decode audio,
         // verify checksums, or establish the source's lossless provenance.
-        public static FlacAuditResult CheckFolder(string directory, CancellationToken ct)
+        public static FlacAuditResult CheckFolder(string directory, CancellationToken ct, string decoder=null)
         {
             if (String.IsNullOrWhiteSpace(directory))
                 throw new ArgumentException("Choose a folder to check.", "directory");
@@ -47,16 +47,16 @@ namespace PlaylistFlac
             string lockPath=Path.Combine(root,".download.lock");
             if(File.Exists(lockPath) && (File.GetAttributes(lockPath)&FileAttributes.ReparsePoint)!=0)throw new IOException("The collection lock must not be a file link.");
             using(var outputLock=new FileStream(lockPath,FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None))
-                return CheckFolderLocked(root,ct);
+                return CheckFolderLocked(root,ct,decoder);
         }
 
-        private static FlacAuditResult CheckFolderLocked(string root,CancellationToken ct)
+        private static FlacAuditResult CheckFolderLocked(string root,CancellationToken ct,string decoder)
         {
             List<string> paths = FindFlacFiles(root, ct);
             paths.Sort(StringComparer.OrdinalIgnoreCase);
             FlacAuditResult result = new FlacAuditResult();
             LibraryLayout.Prepare(root,ct);
-            result.ReportPath = LibraryLayout.PathFor(root,"FLAC-check.csv");
+            result.ReportPath = LibraryLayout.PathFor(root,decoder==null ? "FLAC-check.csv" : "FLAC-audio-check.csv");
             string temporaryPath = Path.Combine(root, ".FLAC-check-" + Guid.NewGuid().ToString("N") + ".tmp");
             try
             {
@@ -67,6 +67,10 @@ namespace PlaylistFlac
                     {
                         ct.ThrowIfCancellationRequested();
                         FlacHeaderResult header = CheckFile(path, ct);
+                        if(decoder!=null && header.IsValid) {
+                            bool decoded=DeepFlacCheck.Check(decoder,path,ct);
+                            header.IsValid=decoded;header.Validation=decoded ? "Full FLAC decode passed; lossless origin not proven" : "FLAC decoder reported an error or warning; review file";
+                        }
                         result.TotalFiles++;
                         if (header.IsValid) result.ValidHeaders++;
                         else result.InvalidHeaders++;

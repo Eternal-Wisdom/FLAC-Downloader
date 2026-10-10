@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.15.0
+
+- Search the queue by title, artist, or album; filter by download status without losing hidden tracks or changing download scope. Ctrl+F focuses Find and Escape clears it.
+- Refresh track details during a run with observed speed, elapsed time, latest engine state, and time since the last byte update. Unknown per-track telemetry remains unknown.
+- Pause Activity's displayed text while reading older messages, then catch up to the latest retained messages.
+- Preview library renames and duplicate archival before manual repairs. The preview does not write files; final repairs recheck the library and retain recovery data.
+- Show album availability for imported songs, separated by artist and source album. Preserve optional disc/track positions through CSV imports/exports and Spotify metadata parsing without reordering the original playlist.
+- Offer an optional full audio integrity check using an externally supplied official FLAC decoder. Keep normal header checks lightweight and store the two reports separately. No new decoder is bundled.
+- Keep the pinned download engine, concurrency policy, existing-file reuse, and retry pacing unchanged.
+
 ## 1.14.1
 
 - Keep the Activity window synchronized with new log entries through the existing 200 ms UI refresh.

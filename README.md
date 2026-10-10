@@ -8,7 +8,7 @@ A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify
 
 ## Download and use
 
-Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest/download/flac-downloader-1.14.1-windows-x64.zip) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
+Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
 
 1. Enter your own Soulseek account. New to Soulseek? Follow the [account setup guide](docs/SOULSEEK-ACCOUNT.md). If another Soulseek client is using it, disconnect that client or use a separate account.
 2. Import a CSV, or configure your own Spotify developer Client ID and connect to load a playlist or album link.
@@ -25,7 +25,9 @@ Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, 
 - Song-title filenames; artist names are added when different songs share a title.
 - Missing cover lookup, reversible metadata edits, and FLAC header checks.
 - Saved unavailable tracks with retries starting after 15 minutes and backing off to six hours. Launching or closing the app does not start background downloads.
-- Resizable dark interface, status colors, action icons, and an Activity window.
+- Search by song, artist, or album; filter the queue by status, with live source details.
+- Repair previews, imported-album availability, and optional full audio verification using official FLAC tools.
+- Resizable dark interface, status colors, action icons, and a live Activity window with a follow/pause control.
 
 Formerly named Playlist FLAC. Existing settings and library metadata remain compatible.
 
@@ -72,7 +74,7 @@ Build downloads the pinned Sockseek 3.0.5 Windows engine and checks the ZIP and 
 
 Settings and retry lists stay in `state/` beside the app. Remembered Soulseek passwords are protected for the current Windows account using DPAPI. Spotify access tokens remain in memory. Soulseek credentials are temporarily written to a restricted engine configuration and removed after use. Search queries are sent to Soulseek; artwork lookup may contact Spotify, MusicBrainz, and the Cover Art Archive. Do not upload your state, music, debug logs, or real tracklists in bug reports.
 
-The app is Windows-only. Spotify API access is subject to your developer app's current permissions. Albums import as individual tracks. Reported speed is approximate byte-progress telemetry. FLAC checks inspect headers, not provenance or every audio frame. No automatic updater or always-running background service is included.
+The app is Windows-only. Spotify API access is subject to your developer app's current permissions. Albums import as individual tracks. Reported speed is approximate byte-progress telemetry. Quick FLAC checks inspect headers; optional full checks decode audio using an externally supplied official FLAC tool. Neither proves lossless provenance. No automatic updater or always-running background service is included.
 
 ## License and credits
 

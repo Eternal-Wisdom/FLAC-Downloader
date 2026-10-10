@@ -51,6 +51,9 @@ namespace PlaylistFlac
             IndexStore.Save(folder, index, playlist);
             byte[] oldIndex = File.ReadAllBytes(LibraryLayout.PathFor(folder,"_index.csv"));
             byte[] oldPlaylist = File.ReadAllBytes(Path.Combine(folder, "playlist.m3u8"));
+            var preview=new List<string>();
+            var planned=DuplicateLibrary.Consolidate(folder,playlist,RecordingGroups.Build(playlist.Tracks),index,CancellationToken.None,null,preview);
+            Assert(planned.ArchivedFiles==1 && preview.Count==1 && File.Exists(old) && oldIndex.SequenceEqual(File.ReadAllBytes(LibraryLayout.PathFor(folder,"_index.csv"))) && index[IndexStore.Key(original)].Path==old,"Duplicate preview must not mutate files or saved state.");
             var result = Clean(folder, playlist, index);
             Assert(result.LinkedEntries == 2 && result.ArchivedFiles == 1, "Album copies and a pending alias must share the completed finalized file.");
             foreach (Track track in new[] { original, deluxe, hits })

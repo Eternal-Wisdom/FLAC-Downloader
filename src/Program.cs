@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -142,6 +142,11 @@ namespace PlaylistFlac
         private RadioButton parallel8, parallel20, parallel32;
         private Label playlistLabel, countLabel, status, spotifyStatus, engineStatus;
         private ListView tracks;
+        private TextBox queueSearch;
+        private QueueStatusChoice queueFilter;
+        private Label visibleCount;
+        private readonly List<ListViewItem> allRows=new List<ListViewItem>();
+        private bool filterDirty;
         private ProgressBar progress;
         private readonly SpotifyImporter spotify = new SpotifyImporter();
         private SmartDownloader engine;
@@ -162,14 +167,14 @@ namespace PlaylistFlac
         {
             preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.14.1"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.15.0"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
             Build(); FitWindow(); if(!previewMode)LoadSettings();
             autoRetry.CheckedChanged += delegate { retriesArmed=autoRetry.Checked; SaveSettings(); };
             retryTimer.Tick += async delegate { await RetryWaiting(); }; retryTimer.Start();
-            uiTimer.Tick += delegate { FlushLog(); if(busy && lastTransferEvent!=DateTime.MinValue && (DateTime.UtcNow-lastTransferEvent).TotalSeconds>4) transferStatus.Text="Waiting for transfer progress"; }; uiTimer.Start();
+            uiTimer.Tick += delegate { FlushLog(); if(filterDirty)ApplyQueueFilter(); if(busy && lastTransferEvent!=DateTime.MinValue && (DateTime.UtcNow-lastTransferEvent).TotalSeconds>4) transferStatus.Text="Waiting for transfer progress"; }; uiTimer.Start();
             FormClosed += delegate { uiTimer.Dispose(); retryTimer.Dispose(); };
             FormClosing += delegate(object sender, FormClosingEventArgs e) {
                 if (busy) { e.Cancel = true; closeRequested = true; if (operation != null) operation.Cancel(); status.Text = "Stopping before closing..."; return; }
@@ -213,11 +218,18 @@ namespace PlaylistFlac
             var importLabel=importPanel.Controls.OfType<Label>().Single();importLabel.Text="ADD MUSIC   •   Paste a Spotify link or drop a CSV";
             var outputLabel=footer.Controls.OfType<Label>().First(c=>c.Text.StartsWith("SAVE PLAYLIST"));outputLabel.Text="SAVE MUSIC TO";
             var rows=new ImageList {ImageSize=new Size(1,34)};tracks.SmallImageList=rows;tracks.Disposed+=delegate {rows.Dispose();};
+            queueSearch=new TextBox {AccessibleName="Search songs, artists, or albums",BackColor=Surface,ForeColor=Color.White};
+            queueFilter=new QueueStatusChoice {BackColor=Surface,ForeColor=Color.White};
+            visibleCount=new Label {ForeColor=Color.LightGray,AccessibleName="Visible song count"};
+            var findLabel=new Label {Text="Find",ForeColor=Color.LightGray};queue.Controls.Add(findLabel);
+            queue.Controls.AddRange(new Control[]{queueSearch,queueFilter,visibleCount});queueFilter.SelectedItem="All songs";queueSearch.TabIndex=0;queueFilter.TabIndex=1;tracks.TabIndex=2;
+            queueSearch.TextChanged+=delegate {ApplyQueueFilter();};queueFilter.SelectedItemChanged+=delegate {ApplyQueueFilter();};
+            KeyPreview=true;KeyDown+=delegate(object sender,KeyEventArgs e) {if(e.Control && e.KeyCode==Keys.F){queueSearch.Focus();queueSearch.SelectAll();e.SuppressKeyPress=true;}else if(e.KeyCode==Keys.Escape && queueSearch.Focused){queueSearch.Clear();e.SuppressKeyPress=true;}};
             Action arrange=delegate {
                 int w=Math.Max(430,importPanel.ClientSize.Width);
                 badge.SetBounds(Math.Max(0,header.Width-170),2,170,22);
                 importLabel.SetBounds(0,2,w,22);source.SetBounds(0,31,w-242,30);load.Text="Load link";load.SetBounds(w-232,29,112,36);import.Text="CSV";import.SetBounds(w-112,29,112,36);
-                playlistLabel.SetBounds(0,8,queue.Width,30);countLabel.SetBounds(0,42,queue.Width,28);tracks.SetBounds(0,76,queue.Width,Math.Max(60,queue.Height-84));
+                playlistLabel.SetBounds(0,8,queue.Width,30);countLabel.SetBounds(0,42,queue.Width,28);findLabel.SetBounds(0,80,38,24);queueSearch.SetBounds(42,76,Math.Max(80,queue.Width-314),26);queueFilter.SetBounds(Math.Max(90,queue.Width-262),76,142,26);visibleCount.SetBounds(Math.Max(240,queue.Width-112),80,112,22);tracks.SetBounds(0,110,queue.Width,Math.Max(60,queue.Height-118));
                 int available=Math.Max(410,tracks.ClientSize.Width-20);tracks.Columns[0].Width=38;tracks.Columns[3].Width=52;tracks.Columns[4].Width=112;tracks.Columns[1].Width=(available-202)*55/100;tracks.Columns[2].Width=available-202-tracks.Columns[1].Width;
                 outputLabel.SetBounds(0,0,w,22);destination.SetBounds(0,27,w-212,30);browse.Text="Select";browse.SetBounds(w-202,25,94,36);open.Text="Open";open.SetBounds(w-100,25,100,36);
                 start.SetBounds(0,72,164,40);stop.SetBounds(172,72,76,40);retry.SetBounds(256,72,136,40);
@@ -301,6 +313,7 @@ namespace PlaylistFlac
             exportMissing.Click+=delegate {ExportMissingSongs();};
             trackMenu.Opening+=delegate {exportMissing.Enabled=!busy && !preview && playlist!=null;};
             trackMenu.Items.Add(new ToolStripSeparator());
+            var albums=trackMenu.Items.Add("Album availability...");albums.Click+=delegate {ShowAlbumAvailability();};
             var showFile=trackMenu.Items.Add("Show in folder");
             var recycleFile=trackMenu.Items.Add("Move to Recycle Bin...");
             showFile.Click+=delegate {SelectedFileAction(false);};
@@ -388,7 +401,10 @@ namespace PlaylistFlac
             start.Click += async delegate { await Download(false); };
             retry.Click += async delegate { await Download(true); };
             stop.Click += delegate { retriesArmed=false; if (operation != null) { status.Text = "Stopping..."; operation.Cancel(); stop.Enabled = false; } };
-            verify.Click += async delegate { await CheckFiles(); };
+            var auditMenu=new ContextMenuStrip();var quick=auditMenu.Items.Add("Quick header check");quick.Click+=async delegate {await CheckFiles();};
+            verify.Click+=delegate {auditMenu.Show(verify,new Point(0,verify.Height));};
+            var deep=auditMenu.Items.Add("Full audio check (requires official flac.exe)...");
+            deep.Click+=async delegate {using(var choose=new OpenFileDialog {Title="Select official FLAC decoder",Filter="FLAC decoder (flac.exe)|flac.exe"})if(choose.ShowDialog(this)==DialogResult.OK)await CheckFiles(choose.FileName);};verify.ContextMenuStrip=auditMenu;
             fix.Click += async delegate { await FixLibrary(); };
             status = LabelAt(this, "Ready to import", 625, 670, 175, 44, 9, Accent, false); status.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             progress = new ProgressBar { Location = new Point(30, 718), Size = new Size(770, 5), Style = ProgressBarStyle.Continuous, Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right }; Controls.Add(progress);
@@ -514,13 +530,13 @@ namespace PlaylistFlac
         {
             sourceDetails.Clear();runProfile=null;
             retriesArmed=false; waitingRetries=0;
-            playlist = p; recordingGroups=RecordingGroups.Build(p.Tracks); currentFolder = null; playlistLabel.Text = p.Name; tracks.BeginUpdate(); tracks.Items.Clear(); rowsByKey.Clear();rowsByQuery.Clear();
+            playlist = p; recordingGroups=RecordingGroups.Build(p.Tracks); currentFolder = null; playlistLabel.Text = p.Name; tracks.BeginUpdate(); tracks.Items.Clear(); allRows.Clear(); rowsByKey.Clear();rowsByQuery.Clear();
             int i = 0;
             foreach (var group in recordingGroups.Groups)
             {
                 Track t=group.Representative;
                 var row = new ListViewItem((++i).ToString("00")); row.SubItems.Add(t.Title); row.SubItems.Add(t.Artist);
-                int seconds = (int)Math.Max(0, t.DurationSeconds); row.SubItems.Add(seconds > 0 ? (seconds / 60).ToString() + ":" + (seconds % 60).ToString("00") : "--"); row.SubItems.Add("Ready"); row.Tag = t; tracks.Items.Add(row);
+                int seconds = (int)Math.Max(0, t.DurationSeconds); row.SubItems.Add(seconds > 0 ? (seconds / 60).ToString() + ":" + (seconds % 60).ToString("00") : "--"); row.SubItems.Add("Ready"); row.Tag = t; allRows.Add(row); tracks.Items.Add(row);
                 foreach(string key in group.Tracks.Select(IndexStore.Key).Distinct()) AddRow(rowsByKey,key,row);
                 AddRow(rowsByQuery,QueryKey(t.Artist,t.Title),row);
             }
@@ -621,9 +637,20 @@ namespace PlaylistFlac
                     TrackDetails details;if(!sourceDetails.TryGetValue(key,out details)){details=new TrackDetails();sourceDetails.Add(key,details);}details.Observe(update);
                     if(next=="Failed")failureReasons[key]=update.Status; progressState.Set(key,next); row.SubItems[4].Text=progressState.Status(key);
                 }
+                filterDirty=true;
                 UpdateSummary();
                 status.Text=next=="Failed" ? "A track is unavailable; continuing" : next=="Downloaded" ? "Downloaded "+progressState.Completed+" of "+progressState.Total : next;
             }
+        }
+        private void ApplyQueueFilter()
+        {
+            filterDirty=false;if(queueSearch==null)return;
+            var visible=allRows.Where(r=>QueueFilter.Matches((Track)r.Tag,r.SubItems[4].Text,queueSearch.Text,Convert.ToString(queueFilter.SelectedItem))).ToList();
+            visibleCount.Text=visible.Count+" / "+allRows.Count;
+            if(tracks.Items.Cast<ListViewItem>().SequenceEqual(visible))return;
+            var selected=new HashSet<ListViewItem>(tracks.SelectedItems.Cast<ListViewItem>());
+            var top=tracks.TopItem;
+            tracks.BeginUpdate();try {tracks.Items.Clear();tracks.Items.AddRange(visible.ToArray());foreach(var row in visible)row.Selected=selected.Contains(row);if(top!=null && visible.Contains(top))tracks.TopItem=top;}finally {tracks.EndUpdate();}
         }
         private static string QueryKey(string artist,string title) { artist=artist ?? "";return artist.Length+":"+artist+(title ?? ""); }
         private void ShowTrackDetails()
@@ -646,17 +673,29 @@ namespace PlaylistFlac
                         });
                         if(!window.IsDisposed && !text.IsDisposed)text.AppendText(description);
                     };
-                window.ShowDialog(this);
+                using(var refresh=new System.Windows.Forms.Timer {Interval=1000})
+                {
+                    if(busy) {refresh.Tick+=delegate {TrackDetails latest;if(sourceDetails.TryGetValue(IndexStore.Key(track),out latest))text.Text=latest.Describe(track,row.SubItems[4].Text,runProfile ?? Convert.ToString(quality.SelectedItem),runProfile==null ? strict.Checked : runStrict);};refresh.Start();}
+                    window.ShowDialog(this);
+                }
             }
+        }
+        private void ShowAlbumAvailability()
+        {
+            if(playlist==null || progressState==null)return;
+            var states=new Dictionary<string,string>();
+            foreach(var group in recordingGroups.Groups)foreach(var track in group.Tracks)states[IndexStore.Key(track)]=progressState.Status(IndexStore.Key(group.Representative));
+            using(var window=new Form {Text="Album availability in this tracklist",Size=new Size(720,540),StartPosition=FormStartPosition.CenterParent})
+            using(var text=new TextBox {Text=AlbumAvailability.Describe(playlist,states),ReadOnly=true,Multiline=true,ScrollBars=ScrollBars.Both,Dock=DockStyle.Fill}){window.Controls.Add(text);window.ShowDialog(this);}
         }
         private void ExportMissingSongs()
         {
             if(busy || preview || playlist==null)return;
             try {
                 RestoreStatus();
-                var states=tracks.Items.Cast<ListViewItem>().ToDictionary(r=>IndexStore.Key((Track)r.Tag),r=>r.SubItems[4].Text);
+                var states=allRows.ToDictionary(r=>IndexStore.Key((Track)r.Tag),r=>r.SubItems[4].Text);
                 // Rows already represent recording groups, including repeated album editions.
-                var collection=new Playlist {Tracks=tracks.Items.Cast<ListViewItem>().Select(r=>(Track)r.Tag).ToList()};
+                var collection=new Playlist {Tracks=allRows.Select(r=>(Track)r.Tag).ToList()};
                 var missing=MissingTrackExport.Select(collection,states);
                 if(missing.Tracks.Count==0){MessageBox.Show(this,"There are no confirmed missing songs to export. Ready and Review versions entries are excluded.","Export missing songs");return;}
                 using(var dialog=new SaveFileDialog {Filter="CSV tracklists (*.csv)|*.csv",FileName="missing-songs.csv",Title="Export missing songs (contains your song list)",OverwritePrompt=true})
@@ -693,7 +732,7 @@ namespace PlaylistFlac
             } catch(Exception ex) { if(ex is IOException || ex is ArgumentException || ex is UnauthorizedAccessException || ex is FormatException) Log("Saved status could not be read: "+ex.Message);else throw; }
             var displayPlaylist=new Playlist {Tracks=recordingGroups.Groups.Select(g=>g.Representative).ToList()};
             progressState=new PlaylistProgressState(displayPlaylist,saved);
-            tracks.BeginUpdate();foreach(ListViewItem row in tracks.Items)row.SubItems[4].Text=progressState.Status(IndexStore.Key((Track)row.Tag));tracks.EndUpdate();
+            tracks.BeginUpdate();foreach(ListViewItem row in allRows)row.SubItems[4].Text=progressState.Status(IndexStore.Key((Track)row.Tag));tracks.EndUpdate();ApplyQueueFilter();
             UpdateSummary();
         }
         private void UpdateSummary()
@@ -714,6 +753,16 @@ namespace PlaylistFlac
             try
             {
                 currentFolder=AppState.PlaylistFolder(destination.Text.Trim(),playlist.Name,playlist.Source);
+                status.Text="Preparing repair preview...";
+                string plan=await Task.Run(()=>LibraryRepairPreview.Describe(currentFolder,playlist,operation.Token));
+                operation.Token.ThrowIfCancellationRequested();
+                using(var review=new Form {Text="Review library repairs",Size=new Size(720,540),StartPosition=FormStartPosition.CenterParent})
+                using(var description=new TextBox {Text=plan,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Both,Dock=DockStyle.Fill})
+                using(var apply=new Button {Text="Apply repairs",Dock=DockStyle.Bottom,Height=40,DialogResult=DialogResult.OK})
+                {
+                    review.Controls.Add(description);review.Controls.Add(apply);
+                    if(review.ShowDialog(this)!=DialogResult.OK){status.Text="Repairs cancelled; no changes applied";return;}
+                }
                 engine=new SmartDownloader();engine.Log+=Log;
                 status.Text="Fixing covers and filenames...";
                 Log("Fixing saved music without starting Soulseek downloads. Extra duplicates and original artwork metadata remain recoverable.");
@@ -730,13 +779,13 @@ namespace PlaylistFlac
                 if(!IsDisposed && !Disposing){SetBusy(false);RestoreStatus();FlushLog();}
             }
         }
-        private async Task CheckFiles()
+        private async Task CheckFiles(string decoder=null)
         {
             if (busy) return;
             string folder = currentFolder;
             if (String.IsNullOrEmpty(folder)) using (var dialog = new FolderBrowserDialog { Description = "Choose a folder to check for FLAC headers", SelectedPath = destination.Text }) { if (dialog.ShowDialog(this) != DialogResult.OK) return; folder = dialog.SelectedPath; }
-            operation = new CancellationTokenSource(); SetBusy(true); status.Text = "Checking FLAC headers...";
-            try { var result = await Task.Run(() => FlacAudit.CheckFolder(folder, operation.Token)); currentFolder = folder; Log(result.ValidHeaders + " valid FLAC headers, " + result.InvalidHeaders + " files need review. Report saved to " + result.ReportPath); status.Text = result.TotalFiles + " files checked"; }
+            operation = new CancellationTokenSource(); SetBusy(true); status.Text = decoder==null ? "Checking FLAC headers..." : "Decoding audio for integrity checks...";
+            try { var result = await Task.Run(() => FlacAudit.CheckFolder(folder, operation.Token,decoder)); currentFolder = folder; Log(result.ValidHeaders + (decoder==null ? " valid FLAC headers, " : " full audio checks passed, ") + result.InvalidHeaders + " files need review. Report saved to " + result.ReportPath); status.Text = result.TotalFiles + " files checked"; }
             catch (OperationCanceledException) { status.Text = "Check cancelled"; }
             catch (Exception ex) { ShowError(ex.Message); }
             finally { SetBusy(false); }

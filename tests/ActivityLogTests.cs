@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
@@ -33,6 +33,10 @@ internal static class ActivityLogTests
             Call(main,"FlushLog");
             var text=((TextBox)reopened.Controls[0]).Text;
             if(text.Split(new[]{Environment.NewLine},StringSplitOptions.None).Length>160 || !text.Contains("bounded entry 299"))throw new Exception("Live activity log did not retain bounded recent output.");
+            var follow=(CheckBox)reopened.Controls[1];follow.Checked=false;
+            Call(main,"Log","held while reading");Call(main,"FlushLog");
+            if(((TextBox)reopened.Controls[0]).Text.Contains("held while reading"))throw new Exception("Paused log moved while reading.");
+            follow.Checked=true;if(!((TextBox)reopened.Controls[0]).Text.Contains("held while reading"))throw new Exception("Following log did not catch up.");
             reopened.Close();Call(main,"Log","final update");Call(main,"FlushLog");main.Close();
         }
         }
