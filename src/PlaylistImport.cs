@@ -20,6 +20,8 @@ namespace PlaylistFlac
 {
     public sealed class Track
     {
+        public int DiscNumber { get; set; }
+        public int TrackNumber { get; set; }
         public string Title { get; set; }
         public string Artist { get; set; }
         public string Album { get; set; }
@@ -65,6 +67,7 @@ namespace PlaylistFlac
             int artistIds = Column(headers, "artisturis", "artisturi", "artistids", "artistid");
             int artistJson = Column(headers, "artistnamesjson");
             int cover = Column(headers, "albumimageurl", "coverurl", "artworkurl");
+            int disc=Column(headers,"discnumber","disc"), position=Column(headers,"tracknumber","trackposition");
             if (title < 0 || artist < 0)
                 throw new FormatException("CSV needs title and artist columns (Exportify's Track Name and Artist Name(s) also work).");
             var result = new Playlist { Name = name, Source = source };
@@ -81,6 +84,7 @@ namespace PlaylistFlac
                 if (rawId.StartsWith("spotify:track:", StringComparison.Ordinal)) rawId = rawId.Substring(14);
                 if (!Regex.IsMatch(rawId, "^[A-Za-z0-9]{22}$")) rawId = "";
                 result.Tracks.Add(new Track {
+                    DiscNumber=ParsePosition(Cell(row,disc)),TrackNumber=ParsePosition(Cell(row,position)),
                     Title = trackTitle, Artist = trackArtist, Album = Cell(row, album), SpotifyId = rawId,
                     Isrc = Cell(row, isrc), CoverUrl = NormalizeCoverUrl(Cell(row, cover)), Artists = ReadArtistNames(trackArtist, Cell(row, artistIds), Cell(row, artistJson)),
                     DurationSeconds = ParseDuration(Cell(row, duration), duration >= 0 && (headers[duration].EndsWith("ms", StringComparison.Ordinal) || headers[duration].EndsWith("milliseconds", StringComparison.Ordinal)))
@@ -89,19 +93,21 @@ namespace PlaylistFlac
             return result;
         }
 
+        private static int ParsePosition(string value) {int result;return Int32.TryParse(value,out result) && result>0 && result<=9999 ? result : 0;}
+
         public static void Write(string path, Playlist playlist)
         {
             if (playlist == null) throw new ArgumentNullException("playlist");
             using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
             {
-                writer.WriteLine("title,artist,album,length,isrc,spotify_id,artist_names_json,cover_url");
+                writer.WriteLine("title,artist,album,length,isrc,spotify_id,artist_names_json,cover_url,disc_number,track_number");
                 foreach (var track in playlist.Tracks)
                 {
                     // Unknown durations are blank, so a downloader does not reject candidates as zero-length.
                     string length = track.DurationSeconds > 0 && !Double.IsNaN(track.DurationSeconds) && !Double.IsInfinity(track.DurationSeconds)
                         ? track.DurationSeconds.ToString("0.###", CultureInfo.InvariantCulture) : "";
                     string artists = new JavaScriptSerializer().Serialize(track.Artists ?? new [] { track.Artist ?? "" });
-                    writer.WriteLine(Quote(track.Title) + "," + Quote(track.Artist) + "," + Quote(track.Album) + "," + length + "," + Quote(track.Isrc) + "," + Quote(track.SpotifyId) + "," + Quote(artists) + "," + Quote(NormalizeCoverUrl(track.CoverUrl)));
+                    writer.WriteLine(Quote(track.Title) + "," + Quote(track.Artist) + "," + Quote(track.Album) + "," + length + "," + Quote(track.Isrc) + "," + Quote(track.SpotifyId) + "," + Quote(artists) + "," + Quote(NormalizeCoverUrl(track.CoverUrl))+","+track.DiscNumber.ToString(CultureInfo.InvariantCulture)+","+track.TrackNumber.ToString(CultureInfo.InvariantCulture));
                 }
             }
         }
@@ -452,6 +458,7 @@ namespace PlaylistFlac
                     }
                 if (String.IsNullOrWhiteSpace(title) || artistNames.Count == 0) { target.SkippedTracks++; continue; }
                 target.Tracks.Add(new Track {
+                    DiscNumber=(int)Math.Max(0,Math.Min(9999,NumberValue(track,"disc_number",0))),TrackNumber=(int)Math.Max(0,Math.Min(9999,NumberValue(track,"track_number",0))),
                     Title = title, Artist = String.Join(", ", artistNames), Artists = artistNames.ToArray(), Album = StringValue(ObjectValue(track, "album"), "name"),
                     DurationSeconds = Math.Max(0, NumberValue(track, "duration_ms", 0) / 1000.0), SpotifyId = StringValue(track, "id"),
                     Isrc = StringValue(ObjectValue(track, "external_ids"), "isrc"), CoverUrl = SelectCoverUrl(ObjectValue(track, "album"))

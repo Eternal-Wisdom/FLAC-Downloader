@@ -27,7 +27,7 @@ namespace PlaylistFlac
             public string From, GroupKey;
         }
 
-        public static RenameResult RenameCompleted(string folder, Playlist original, CancellationToken ct, Action<string> log, string destinationDirectory = null)
+        public static RenameResult RenameCompleted(string folder, Playlist original, CancellationToken ct, Action<string> log, string destinationDirectory = null, List<string> preview = null)
         {
             if (original == null) throw new ArgumentNullException("original");
             string root = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -112,6 +112,7 @@ namespace PlaylistFlac
                 if (String.Equals(file.From, to, StringComparison.OrdinalIgnoreCase)) result.Unchanged++;
                 else { mapping.Add(file.From, to); changes.Add(new Change { From = file.From, To = to }); }
             }
+            if(preview!=null) {foreach(var change in changes)preview.Add(Relative(root,change.From)+" → "+Relative(root,change.To));result.Renamed=changes.Count;return result;}
             if (changes.Count == 0) return result;
             // A historical source row can share the same physical file without
             // belonging to this import. Every safe reference must follow its move.

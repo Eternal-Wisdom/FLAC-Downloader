@@ -49,7 +49,7 @@ namespace PlaylistFlac
             return fallback;
         }
 
-        internal static DuplicateCleanupResult Consolidate(string folder, Playlist playlist, RecordingGroups groups, Dictionary<string, SavedTrack> index, CancellationToken ct, Action<string> log)
+        internal static DuplicateCleanupResult Consolidate(string folder, Playlist playlist, RecordingGroups groups, Dictionary<string, SavedTrack> index, CancellationToken ct, Action<string> log, List<string> preview=null)
         {
             string root = Path.GetFullPath(folder).TrimEnd('\\', '/');
             if (root.Length < 3 || String.Equals(root, Path.GetPathRoot(Path.GetFullPath(folder)).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
@@ -105,6 +105,7 @@ namespace PlaylistFlac
                 }
             }
             ct.ThrowIfCancellationRequested();
+            if(preview!=null) {foreach(var move in moves)preview.Add(Path.GetFileName(move.Key)+" → keep "+Path.GetFileName(move.Value));result.ArchivedFiles=moves.Count;return result;}
             if (result.LinkedEntries == 0 && moves.Count == 0) return result;
             string indexPath = SafePath(root, LibraryLayout.PathFor(root,"_index.csv")), playlistPath = SafePath(root, Path.Combine(root, "playlist.m3u8"));
             byte[] oldIndex = File.Exists(indexPath) ? File.ReadAllBytes(indexPath) : null;
