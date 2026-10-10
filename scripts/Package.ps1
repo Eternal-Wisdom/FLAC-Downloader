@@ -1,8 +1,8 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $build=Join-Path $root 'build'
 $dist=Join-Path $root 'dist'
-$version='1.14.1'
+$version='1.15.0'
 if(-not (Test-Path -LiteralPath (Join-Path $build 'FLAC-Downloader.exe'))){throw 'Build the app first.'}
 $receiptPath=Join-Path $build 'tested-build.json'
 if(-not (Test-Path -LiteralPath $receiptPath)){throw 'Run scripts/Test.ps1 successfully before packaging.'}
