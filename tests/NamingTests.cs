@@ -54,6 +54,9 @@ namespace PlaylistFlac
             File.WriteAllBytes(Path.Combine(folder, "failed.flac"), new byte[0]);
             File.WriteAllText(LibraryLayout.PathFor(folder,"_index.csv"), String.Join("\n", rows) + "\n", new UTF8Encoding(false));
             File.WriteAllText(Path.Combine(folder, "playlist.m3u8"), "#EXTM3U\n" + String.Join("\n", names) + "\n", new UTF8Encoding(false));
+            var before=Directory.GetFiles(folder,"*",SearchOption.AllDirectories).OrderBy(x=>x).ToArray();
+            var preview=new List<string>();var planned=LibraryNaming.RenameCompleted(folder,p,CancellationToken.None,null,null,preview);
+            Assert(planned.Renamed==5 && preview.Count==5 && before.SequenceEqual(Directory.GetFiles(folder,"*",SearchOption.AllDirectories).OrderBy(x=>x)),"Preview must plan changes without writing files.");
             RenameResult result = LibraryNaming.RenameCompleted(folder, p, CancellationToken.None, null);
             Assert(result.Renamed == 5 && result.Skipped == 3, "Only completed, matched, in-folder tracks may be renamed.");
             Assert(File.Exists(Path.Combine(folder, "album/夜の歌 (feat. Guest).flac")), "Japanese and explicit featured credit must survive.");
