@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -167,7 +167,7 @@ namespace PlaylistFlac
         {
             preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.15.0"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.15.3"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -459,7 +459,7 @@ namespace PlaylistFlac
             retry.Enabled = start.Enabled;
             fix.Enabled = !value && playlist != null && playlist.Tracks.Count > 0;
             stop.Enabled = value; progress.Style = ProgressBarStyle.Continuous;
-            if (!value) { if (operation != null) operation.Dispose(); operation = null; if (closeRequested && !IsDisposed) BeginInvoke(new Action(Close)); }
+            if (!value) { lastTransferEvent=DateTime.MinValue; transferStatus.Text="Transfers stopped"; if (operation != null) operation.Dispose(); operation = null; if (closeRequested && !IsDisposed) BeginInvoke(new Action(Close)); }
         }
         private void Log(string message)
         {
@@ -637,7 +637,9 @@ namespace PlaylistFlac
                     TrackDetails details;if(!sourceDetails.TryGetValue(key,out details)){details=new TrackDetails();sourceDetails.Add(key,details);}details.Observe(update);
                     if(next=="Failed")failureReasons[key]=update.Status; progressState.Set(key,next); row.SubItems[4].Text=progressState.Status(key);
                 }
-                filterDirty=true;
+                // Text searches do not depend on status. Only status filters need
+                // another membership scan when a transfer reports progress.
+                if(Convert.ToString(queueFilter.SelectedItem)!="All songs")filterDirty=true;
                 UpdateSummary();
                 status.Text=next=="Failed" ? "A track is unavailable; continuing" : next=="Downloaded" ? "Downloaded "+progressState.Completed+" of "+progressState.Total : next;
             }
@@ -645,7 +647,8 @@ namespace PlaylistFlac
         private void ApplyQueueFilter()
         {
             filterDirty=false;if(queueSearch==null)return;
-            var visible=allRows.Where(r=>QueueFilter.Matches((Track)r.Tag,r.SubItems[4].Text,queueSearch.Text,Convert.ToString(queueFilter.SelectedItem))).ToList();
+            string query=(queueSearch.Text ?? "").Trim();string filter=Convert.ToString(queueFilter.SelectedItem);
+            var visible=allRows.Where(r=>QueueFilter.MatchesPrepared((Track)r.Tag,r.SubItems[4].Text,query,filter)).ToList();
             visibleCount.Text=visible.Count+" / "+allRows.Count;
             if(tracks.Items.Cast<ListViewItem>().SequenceEqual(visible))return;
             var selected=new HashSet<ListViewItem>(tracks.SelectedItems.Cast<ListViewItem>());

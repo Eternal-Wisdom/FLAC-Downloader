@@ -74,7 +74,7 @@ namespace PlaylistFlac
             string recovery = RecoveryFolders.NewPath(root,"artwork");
             int processed = 0;
             var entries=owners.ToArray();
-            var pending=new Queue<Task<PreparedCover>>();
+            var pending=new List<Task<PreparedCover>>();
             using(var pipeline=CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 int scheduled=0;
@@ -84,13 +84,17 @@ namespace PlaylistFlac
                     while(scheduled<entries.Length && pending.Count<parallelCovers)
                     {
                         var next=PrepareAsync(entries[scheduled++],reviewPaths,find,pipeline.Token);
-                        pending.Enqueue(next);
+                        pending.Add(next);
                         if(next.IsFaulted)await next.ConfigureAwait(false);
                     }
                     while(pending.Count>0)
                     {
                         foreach(var waiting in pending)if(waiting.IsFaulted)await waiting.ConfigureAwait(false);
-                        var prepared=await pending.Dequeue().ConfigureAwait(false);
+                        // A slow first request must not leave the other lookup slots
+                        // idle. Commit ready results one at a time, then refill.
+                        var completed=await Task.WhenAny(pending).ConfigureAwait(false);
+                        var prepared=await completed.ConfigureAwait(false);
+                        pending.Remove(completed);
                         ct.ThrowIfCancellationRequested();
                         foreach(var waiting in pending)if(waiting.IsFaulted)await waiting.ConfigureAwait(false);
                         var track=prepared.Track;
@@ -123,7 +127,7 @@ namespace PlaylistFlac
                         }
                         report.AppendLine(String.Join(",",new[]{prepared.Path,track.Title,track.Artist,track.Album,state,source}.Select(IndexStore.Quote)));
                         if(++processed%25==0 && log!=null)log("Covers checked: "+processed+" of "+owners.Count+"; "+result.Added+" added.");
-                        if(scheduled<entries.Length)pending.Enqueue(PrepareAsync(entries[scheduled++],reviewPaths,find,pipeline.Token));
+                        if(scheduled<entries.Length)pending.Add(PrepareAsync(entries[scheduled++],reviewPaths,find,pipeline.Token));
                     }
                 }
                 catch(Exception ex){failure=ex;}
