@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.15.3
+
+- Process completed cover lookups as they arrive, keeping available slots working even when an earlier lookup is slow. Keep the four-request limit and sequential file writes.
+- Detect asynchronous cover lookup failures promptly and cancel/drain outstanding requests before releasing the library lock.
+
+## 1.15.2 (included in the 1.15.3 public update)
+
+- Avoid scanning the entire queue on transfer updates when All songs is selected, including during text searches. Status filters still refresh as downloads change.
+- Prepare search text once per refresh and search individual fields without allocating a combined title/artist/album string for every song. Preserve Unicode and multi-field search behavior.
+
+## 1.15.1 (included in the 1.15.3 public update)
+
+- Clear stale transfer timing and show Transfers stopped when an operation finishes, so later library repair and file checks cannot leave Waiting for transfer progress on an idle app.
+
 ## 1.15.0
 
 - Search the queue by title, artist, or album; filter by download status without losing hidden tracks or changing download scope. Ctrl+F focuses Find and Escape clears it.
@@ -72,3 +86,4 @@
 ## 1.9.0
 
 - Quality/speed profiles, saved retry review, cross-collection recording reuse, selected-song downloads, and CSV drag and drop.
+
