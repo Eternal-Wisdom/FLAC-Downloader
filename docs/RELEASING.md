@@ -2,17 +2,17 @@
 
 1. Run `scripts/Build.ps1`, `scripts/Test.ps1`, and `scripts/Package.ps1` on Windows.
 2. Inspect the synthetic screenshot, check `build/test-results.xml`, `build/test-results.txt` and `build/tested-build.json`, and extract the portable ZIP into a new directory. Confirm it contains no state, credentials, music, local paths, update backups, or personal test reports.
-3. Review and merge the tested pull request. Create a `v1.13.0` tag only when this candidate is approved for release.
-4. Create a GitHub Release from the tag. Upload `dist/flac-downloader-1.13.0-windows-x64.zip`, `dist/SHA256SUMS.txt`, and `dist/flac-downloader-1.13.0-source.zip`. Include the notes below. GitHub also provides a source snapshot for the tag.
+3. Review and merge the tested pull request. Create a `vVERSION` tag only when the candidate is approved for release, replacing VERSION with the version in `scripts/Package.ps1` and the assembly metadata.
+4. Create a GitHub Release from the tag. Upload `dist/flac-downloader-VERSION-windows-x64.zip`, `dist/SHA256SUMS.txt`, and `dist/flac-downloader-VERSION-source.zip` for that exact version. GitHub also provides a source snapshot for the tag. Put the Made using AI disclosure prominently in the release notes and document current validation limits.
 5. Download the uploaded artifacts and check their SHA256 hashes before announcing the release.
 
 The CI workflow builds and tests pull requests and pushes. Publication is manual; a tag alone does not publish binaries. The portable release includes the upstream engine's corresponding source archive and license. Do not distribute a replacement engine without updating those files, checksums, notices, and tests.
 
 ## Release notes
 
-Made using AI (OpenAI Codex). Version 1.13 separates tests from the portable app and records checkable JUnit evidence with hashes, suite counts and timings. It improves artwork provider cooldowns, Windows reserved-name handling, writable-state diagnostics and recovery guidance for passwords encrypted under another Windows account. See docs/REVIEW-1122.md for the accepted and deferred external-review recommendations.
+Made using AI (OpenAI Codex). Version 1.15.3 improves cover scheduling under uneven request latency, reduces queue allocations and unnecessary progress scans, and clears stale transfer status. It includes the previously local 1.15.1 and 1.15.2 fixes. No additional runtime dependency or replacement transport is introduced.
 
-The full offline suite passed with 29 suites, 0 failures and 0 skipped. The production app has no test classes; new fixtures cover 500 filename inputs, 300 CSV round trips and temporary provider failures. A synthetic 50,000-entry catalog benchmark measured loading and indexed queries. These measurements are not download-speed claims. No new live download testing was performed for this follow-up; earlier 1.12 live-test observations and unresolved Spotify/UI test limits remain documented in docs/VALIDATION.md. Hosted CI results are available on the release pull request.
+The offline suite passed with 33 suites, zero failures, and zero skips. All 21 fresh live CSV/Soulseek assertions passed, including English/Japanese downloads, duplicate suppression, completed restart, unavailable-track export and paced retries, cancellation, and direct/fallback artwork retrieval. Native checks covered queue search, album availability, Explorer selection, repair preview/application, quick/full checks, and live Activity follow/pause. Downloaded audio passed the official decoder. Spotify API import was excluded by request; the native deletion-confirmation path and a live comparison of every concurrency/profile combination were not exercised. See `docs/VALIDATION.md` for evidence and limits.
 
 Windows x64; unsigned executable. No live-peer speed improvement is claimed. Publication is a separate manual step; creating a local candidate does not authorize an automatic release.
 

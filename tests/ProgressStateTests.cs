@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Windows.Forms;
 using PlaylistFlac;
 
 internal static class ProgressStateTests
@@ -20,6 +22,16 @@ internal static class ProgressStateTests
         Check(review.Total==3 && review.Review==2 && review.Ready==1 && review.Completed==0,"ambiguous versions stay visible without inflating download queue");
         review.Set(IndexStore.Key(b),"Downloaded");
         Check(review.Completed==1 && review.Review==2 && review.Ready==0,"completed tracks do not clear review entries");
+        using(var form=new MainForm(true))
+        {
+            var flags=BindingFlags.Instance|BindingFlags.NonPublic;
+            var stamp=typeof(MainForm).GetField("lastTransferEvent",flags);
+            var label=(Label)typeof(MainForm).GetField("transferStatus",flags).GetValue(form);
+            stamp.SetValue(form,DateTime.UtcNow.AddSeconds(-10));
+            label.Text="Waiting for transfer progress";
+            typeof(MainForm).GetMethod("SetBusy",flags).Invoke(form,new object[]{false});
+            Check(label.Text=="Transfers stopped" && (DateTime)stamp.GetValue(form)==DateTime.MinValue,"finishing work clears stale transfer state before later library operations");
+        }
     }
     private static void Check(bool value,string message){if(!value)throw new Exception("Progress state: "+message);}
 }
