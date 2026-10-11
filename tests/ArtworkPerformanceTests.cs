@@ -31,6 +31,25 @@ internal static class ArtworkPerformanceTests
         for(int i=0;i<8;i++)Check(File.ReadAllBytes(Path.Combine(one.Folder,i+".flac")).SequenceEqual(File.ReadAllBytes(Path.Combine(four.Folder,i+".flac"))),"Both modes produce exactly the same cover metadata and audio bytes.");
         Result="8 missing-cover fixtures, 200 ms simulated network latency per lookup: sequential "+oldMs+" ms; four-lookahead "+newMs+" ms; "+((double)oldMs/Math.Max(1,newMs)).ToString("0.00",CultureInfo.InvariantCulture)+"x faster. Peak lookups: "+four.Peak+". This is an offline benchmark, not a real-network speed guarantee.";
 
+        // The first lookup cannot finish until every later lookup has started.
+        // A FIFO window stalls at four and fails; completion-order processing
+        // keeps replenishing its bounded window and completes all eight.
+        var staggered=new Scenario(Path.Combine(root,"staggered"),8,image,10);
+        var releaseFirst=new TaskCompletionSource<bool>();int started=0;
+        using(var deadline=new CancellationTokenSource(5000))
+        {
+            Func<Track,CancellationToken,Task<CoverLookupResult>> lookup=async (track,ct)=>
+            {
+                if(Interlocked.Increment(ref started)==8)releaseFirst.TrySetResult(true);
+                if(track.Title=="Song 0")using(ct.Register(()=>releaseFirst.TrySetCanceled()))await releaseFirst.Task.ConfigureAwait(false);
+                return await staggered.Find(track,ct).ConfigureAwait(false);
+            };
+            var result=await ArtworkLibrary.FillAsync(staggered.Folder,staggered.Playlist,staggered.Index,lookup,deadline.Token,null,4);
+            Check(started==8 && result.Added==8,"A blocked first lookup cannot stop later lookups from filling available slots.");
+            Check(staggered.Active==0 && staggered.Peak<=4,"Completion-order processing stays bounded and drains all work.");
+            for(int i=0;i<8;i++)Check(File.ReadAllBytes(Path.Combine(staggered.Folder,i+".flac")).SequenceEqual(File.ReadAllBytes(Path.Combine(one.Folder,i+".flac"))),"Completion order leaves the resulting files identical.");
+        }
+
         var cancelled=new Scenario(Path.Combine(root,"cancelled"),8,image,Timeout.Infinite);
         using(var stop=new CancellationTokenSource())
         {
@@ -47,6 +66,17 @@ internal static class ArtworkPerformanceTests
         bool rejected=false;try{await ArtworkLibrary.FillAsync(failure.Folder,failure.Playlist,failure.Index,failing,CancellationToken.None,null,4);}catch(IOException){rejected=true;}
         Check(rejected && failure.Active==0,"A failed worker cancels and drains other outstanding requests.");
         Check(!Directory.GetFiles(failure.Folder,"*",SearchOption.AllDirectories).Any(p=>p.EndsWith(".flac-metadata")),"Failure before the first cover commits no song or artwork recovery metadata.");
+        var lateFailure=new Scenario(Path.Combine(root,"late-failure"),8,image,Timeout.Infinite);
+        using(var stop=new CancellationTokenSource(5000))
+        {
+            Func<Track,CancellationToken,Task<CoverLookupResult>> lateFailing=async (track,ct)=>
+            {
+                if(track.Title=="Song 3"){await Task.Delay(20,ct);throw new IOException("Delayed lookup failure");}
+                return await lateFailure.Find(track,ct);
+            };
+            rejected=false;try{await ArtworkLibrary.FillAsync(lateFailure.Folder,lateFailure.Playlist,lateFailure.Index,lateFailing,stop.Token,null,4);}catch(IOException){rejected=true;}
+            Check(rejected && !stop.IsCancellationRequested && lateFailure.Active==0,"A later asynchronous failure interrupts a blocked first lookup and drains other requests.");
+        }
     }
     private static Task<CoverLookupResult> Fault(){var task=new TaskCompletionSource<CoverLookupResult>();task.SetException(new IOException("Simulated lookup failure"));return task.Task;}
     private sealed class Scenario
