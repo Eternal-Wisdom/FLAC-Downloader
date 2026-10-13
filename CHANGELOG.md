@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.16.0
+
+- Reorganize the main window into Add music, Soulseek account, and Save music steps, with a useful empty-queue import prompt.
+- Give the song queue more room, clearer status colors, concise counts, search hints, and row tooltips.
+- Group checks, repairs, saved retries, and unavailable-song export in Library tools. Keep optional Spotify setup collapsed until needed.
+- Use consistent dark menus and single-line icon buttons, improve keyboard navigation, and keep settings usable at smaller window sizes.
+- Preserve the download engine, existing-file reuse, concurrency, and retry policy; no new dependencies.
+
 ## 1.15.3
 
 - Process completed cover lookups as they arrive, keeping available slots working even when an earlier lookup is slow. Keep the four-request limit and sequential file writes.

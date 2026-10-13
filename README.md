@@ -31,7 +31,7 @@ Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, 
 
 Formerly named Playlist FLAC. Existing settings and library metadata remain compatible.
 
-Version 1.15.3 keeps cover lookup slots working when earlier requests are slow, reduces queue search allocations and unnecessary progress scans, and clears stale transfer status after operations finish. See the [research decisions](docs/RESEARCH-1.15.3.md), [changelog](CHANGELOG.md), and [validation results and limits](docs/VALIDATION.md).
+Version 1.16.0 introduces a clearer three-step layout, more room for songs, grouped Library tools, consistent dark menus, and collapsible optional Spotify setup. See the [research decisions](docs/RESEARCH-1.15.3.md), [changelog](CHANGELOG.md), and [validation results and limits](docs/VALIDATION.md).
 
 ## Clean folder layout
 
