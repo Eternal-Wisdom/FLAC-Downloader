@@ -17,8 +17,9 @@ namespace PlaylistFlac
         internal QueueStatusChoice()
         {
             Text=selected+" ▾";FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=1;AccessibleName="Filter songs by status";
-            var menu=new ContextMenuStrip();
-            foreach(var choice in Choices) {string value=choice;var item=menu.Items.Add(value);item.Click+=delegate {SelectedItem=value;};}
+            var menu=UiStyle.Menu();
+            foreach(var choice in Choices) {string value=choice;var item=new ToolStripMenuItem(value);menu.Items.Add(item);item.Click+=delegate {SelectedItem=value;};}
+            menu.Opening+=delegate {foreach(ToolStripMenuItem item in menu.Items)item.Checked=item.Text==selected;};ContextMenuStrip=menu;
             Click+=delegate {menu.Show(this,new Point(0,Height));};Disposed+=delegate {menu.Dispose();};
         }
     }
