@@ -147,6 +147,10 @@ namespace PlaylistFlac
         private Label visibleCount;
         private readonly List<ListViewItem> allRows=new List<ListViewItem>();
         private bool filterDirty;
+        private Panel spotifySetup,settingsContent,emptyQueue;
+        private Button spotifySetupToggle,libraryTools;
+        private Label queueHint;
+        private readonly ToolTip uiTips=new ToolTip {AutoPopDelay=12000,InitialDelay=500,ReshowDelay=100};
         private ProgressBar progress;
         private readonly SpotifyImporter spotify = new SpotifyImporter();
         private SmartDownloader engine;
@@ -167,7 +171,7 @@ namespace PlaylistFlac
         {
             preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.15.3"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader 1.16.0"; BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -175,7 +179,7 @@ namespace PlaylistFlac
             autoRetry.CheckedChanged += delegate { retriesArmed=autoRetry.Checked; SaveSettings(); };
             retryTimer.Tick += async delegate { await RetryWaiting(); }; retryTimer.Start();
             uiTimer.Tick += delegate { FlushLog(); if(filterDirty)ApplyQueueFilter(); if(busy && lastTransferEvent!=DateTime.MinValue && (DateTime.UtcNow-lastTransferEvent).TotalSeconds>4) transferStatus.Text="Waiting for transfer progress"; }; uiTimer.Start();
-            FormClosed += delegate { uiTimer.Dispose(); retryTimer.Dispose(); };
+            FormClosed += delegate { uiTimer.Dispose(); retryTimer.Dispose(); uiTips.Dispose(); };
             FormClosing += delegate(object sender, FormClosingEventArgs e) {
                 if (busy) { e.Cancel = true; closeRequested = true; if (operation != null) operation.Cancel(); status.Text = "Stopping before closing..."; return; }
                 if (engine != null) engine.Dispose(); if (!preview) SaveSettings(); spotify.Dispose();
@@ -184,12 +188,11 @@ namespace PlaylistFlac
 
         private void FitWindow()
         {
-            var original = Controls.Cast<Control>().ToArray();
-            var side = original.OfType<Panel>().Single();
-            var header = new Panel { Dock=DockStyle.Fill };
-            var importPanel = new Panel { Dock=DockStyle.Fill };
-            var queue = new Panel { Dock=DockStyle.Fill };
-            var footer = new Panel { Dock=DockStyle.Fill };
+            var original=Controls.Cast<Control>().ToArray();
+            var side=original.OfType<Panel>().Single();settingsContent=side;
+            var header=new Panel {Dock=DockStyle.Fill};var importPanel=new Panel {Dock=DockStyle.Fill};
+            var queue=new Panel {Dock=DockStyle.Fill};var footer=new Panel {Dock=DockStyle.Fill};
+            header.AccessibleName="Application and activity";importPanel.AccessibleName="Import music";queue.AccessibleName="Download queue";footer.AccessibleName="Save music and download actions";
             foreach(var c in original) {
                 c.Anchor=AnchorStyles.Top|AnchorStyles.Left;
                 if(c==side)continue;
@@ -198,63 +201,160 @@ namespace PlaylistFlac
                 else if(c==tracks || c==playlistLabel || c==countLabel)queue.Controls.Add(c);
                 else footer.Controls.Add(c);
             }
-            var layout = new TableLayoutPanel {Dock=DockStyle.Fill,Padding=new Padding(24,16,24,16),ColumnCount=2,RowCount=4,BackColor=Background};
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,336));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute,90));layout.RowStyles.Add(new RowStyle(SizeType.Absolute,76));layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));layout.RowStyles.Add(new RowStyle(SizeType.Absolute,262));
-            Controls.Add(layout);layout.Controls.Add(header,0,0);layout.SetColumnSpan(header,2);layout.Controls.Add(importPanel,0,1);layout.Controls.Add(queue,0,2);layout.Controls.Add(footer,0,3);
-            var settingsViewport=new Panel {Dock=DockStyle.Fill,AutoScroll=true,BackColor=Surface,Margin=new Padding(20,8,0,0)};
-            side.Anchor=AnchorStyles.Top|AnchorStyles.Left;side.Location=Point.Empty;side.Size=new Size(294,660);settingsViewport.Controls.Add(side);
+            var layout=new TableLayoutPanel {Dock=DockStyle.Fill,Padding=new Padding(24,18,24,16),ColumnCount=2,RowCount=4,BackColor=Background};
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,320));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute,72));layout.RowStyles.Add(new RowStyle(SizeType.Absolute,88));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));layout.RowStyles.Add(new RowStyle(SizeType.Absolute,220));
+            Controls.Add(layout);layout.Controls.Add(header,0,0);layout.SetColumnSpan(header,2);
+            layout.Controls.Add(importPanel,0,1);layout.Controls.Add(queue,0,2);layout.Controls.Add(footer,0,3);
+            var settingsViewport=new Panel {Dock=DockStyle.Fill,AutoScroll=true,BackColor=Surface,Margin=new Padding(20,3,0,0)};
+            settingsViewport.AccessibleName="Soulseek account and download preferences";
+            side.Location=Point.Empty;side.Size=new Size(290,650);settingsViewport.Controls.Add(side);
             layout.Controls.Add(settingsViewport,1,1);layout.SetRowSpan(settingsViewport,3);
-            foreach(Control c in side.Controls) {if(c.Width>270)c.Width=268;}
-            parallel8.Left=137;parallel20.Left=187;parallel32.Left=237;parallel32.Width=50;
-            connect.Width=158;
-            var help=side.Controls.OfType<Button>().First(c=>c.Text=="Setup help");help.Left=190;help.Width=104;help.Text="Help";
-            header.Controls.OfType<Label>().First(c=>c.Text=="PLAYLIST / FLAC").Text="FLAC-DOWNLOADER";
-            var title=header.Controls.OfType<Label>().First(c=>c.Font.Size>20);title.Text="Your music, beautifully organized.";title.Font=new Font("Segoe UI",20,FontStyle.Bold);
-            var subtitle=header.Controls.OfType<Label>().First(c=>c.Text.StartsWith("Import a tracklist"));subtitle.Text="Playlists and albums · Lossless audio · Artwork and smart filenames";
-            var brand=header.Controls.OfType<Label>().First(c=>c.Text=="FLAC-DOWNLOADER");brand.SetBounds(0,0,160,20);
-            title.SetBounds(0,20,800,36);subtitle.SetBounds(0,56,850,20);
-            var badge=header.Controls.OfType<Label>().First(c=>c.Text.StartsWith("FLAC ONLY"));badge.Text="LOSSLESS / FLAC";
-            var importLabel=importPanel.Controls.OfType<Label>().Single();importLabel.Text="ADD MUSIC   •   Paste a Spotify link or drop a CSV";
-            var outputLabel=footer.Controls.OfType<Label>().First(c=>c.Text.StartsWith("SAVE PLAYLIST"));outputLabel.Text="SAVE MUSIC TO";
-            var rows=new ImageList {ImageSize=new Size(1,34)};tracks.SmallImageList=rows;tracks.Disposed+=delegate {rows.Dispose();};
-            queueSearch=new TextBox {AccessibleName="Search songs, artists, or albums",BackColor=Surface,ForeColor=Color.White};
-            queueFilter=new QueueStatusChoice {BackColor=Surface,ForeColor=Color.White};
-            visibleCount=new Label {ForeColor=Color.LightGray,AccessibleName="Visible song count"};
-            var findLabel=new Label {Text="Find",ForeColor=Color.LightGray};queue.Controls.Add(findLabel);
-            queue.Controls.AddRange(new Control[]{queueSearch,queueFilter,visibleCount});queueFilter.SelectedItem="All songs";queueSearch.TabIndex=0;queueFilter.TabIndex=1;tracks.TabIndex=2;
+
+            var brand=header.Controls.OfType<Label>().First(c=>c.Text=="PLAYLIST / FLAC");
+            brand.Text="FLAC-Downloader";brand.Font=new Font("Segoe UI",21,FontStyle.Bold);brand.SetBounds(0,0,400,36);
+            header.Controls.OfType<Label>().First(c=>c.Font.Size>24).Visible=false;
+            var subtitle=header.Controls.OfType<Label>().First(c=>c.Text.StartsWith("Import a tracklist"));
+            subtitle.Text="Playlist and album tracklists → FLAC files";subtitle.SetBounds(0,39,650,22);
+            var badge=header.Controls.OfType<Label>().First(c=>c.Text.StartsWith("FLAC ONLY"));
+            badge.Text="Made using AI · OpenAI Codex";badge.ForeColor=Muted;badge.TextAlign=ContentAlignment.MiddleRight;
+            var activityButton=ButtonAt(header,"Activity",0,0,104,false);activityButton.Click+=delegate {ShowActivityLog();};
+            var importLabel=importPanel.Controls.OfType<Label>().Single();importLabel.Text="1. ADD MUSIC";importLabel.ForeColor=Accent;
+            var importHint=LabelAt(importPanel,"CSV needs song titles and artists. Spotify setup is optional.",0,66,500,20,9,Muted,false);
+            var outputLabel=footer.Controls.OfType<Label>().First(c=>c.Text.StartsWith("SAVE PLAYLIST"));outputLabel.Text="3. SAVE MUSIC TO";outputLabel.ForeColor=Accent;
+            var rows=new ImageList {ImageSize=new Size(1,34)};tracks.SmallImageList=rows;tracks.ShowItemToolTips=true;tracks.Disposed+=delegate {rows.Dispose();};
+            queueSearch=new TextBox {AccessibleName="Search songs, artists, or albums",BackColor=Surface,ForeColor=Color.White,BorderStyle=BorderStyle.FixedSingle};
+            queueFilter=new QueueStatusChoice {BackColor=Inset,ForeColor=Color.White};
+            visibleCount=new Label {ForeColor=Muted,AccessibleName="Visible song count",TextAlign=ContentAlignment.MiddleRight};
+            queueHint=new Label {ForeColor=Muted,Font=new Font("Segoe UI",9),AutoEllipsis=true,Text="Double-click for details · Right-click for file actions"};
+            queue.Controls.AddRange(new Control[]{queueSearch,queueFilter,visibleCount,queueHint});
+            queueSearch.Enabled=queueFilter.Enabled=false;visibleCount.Text="0 / 0";
+            queueFilter.SelectedItem="All songs";queueSearch.TabIndex=0;queueFilter.TabIndex=1;tracks.TabIndex=2;
             queueSearch.TextChanged+=delegate {ApplyQueueFilter();};queueFilter.SelectedItemChanged+=delegate {ApplyQueueFilter();};
-            KeyPreview=true;KeyDown+=delegate(object sender,KeyEventArgs e) {if(e.Control && e.KeyCode==Keys.F){queueSearch.Focus();queueSearch.SelectAll();e.SuppressKeyPress=true;}else if(e.KeyCode==Keys.Escape && queueSearch.Focused){queueSearch.Clear();e.SuppressKeyPress=true;}};
+            KeyPreview=true;KeyDown+=delegate(object sender,KeyEventArgs e) {
+                if(e.Control && e.KeyCode==Keys.F){queueSearch.Focus();queueSearch.SelectAll();e.SuppressKeyPress=true;}
+                else if(e.KeyCode==Keys.Escape && queueSearch.Focused){queueSearch.Clear();e.SuppressKeyPress=true;}
+            };
+            UiStyle.Hint(source,"Paste a Spotify playlist or album link");UiStyle.Hint(queueSearch,"Find a song, artist or album · Ctrl+F");
+            UiStyle.Hint(username,"Your Soulseek username");UiStyle.Hint(clientId,"32-character Web API Client ID");
+            username.AccessibleName="Soulseek username";password.AccessibleName="Soulseek password";destination.AccessibleName="Music save folder";
+            uiTips.SetToolTip(source,"Use a Spotify playlist or album link, or choose Import CSV to start without Spotify setup.");
+            uiTips.SetToolTip(start,"Download unfinished songs. Completed recordings are checked and kept.");
+            uiTips.SetToolTip(retry,"Try songs currently marked unavailable again. Peer availability changes over time.");
+            uiTips.SetToolTip(stop,"Stop the current operation. Completed files remain saved.");
+            uiTips.SetToolTip(queueSearch,"Search titles, artists and albums. Ctrl+F focuses Find; Escape clears it. Filtering does not change download scope.");
+            uiTips.SetToolTip(quality,"Choose a quality/speed preference. Every profile requires FLAC; higher resolution is not proof of a better source.");
+            uiTips.SetToolTip(autoRetry,"Retries start after 15 minutes and back off to six hours while the app is open. Stop pauses them.");
+            foreach(var radio in new[]{parallel8,parallel20,parallel32})uiTips.SetToolTip(radio,"Job slots include searches and queued songs. More slots do not guarantee more active transfers.");
+
+            // Reflow the existing account controls; preserve their handlers and settings.
+            Action<string,string,int,int,float,Color> sideLabel=(oldText,newText,y,height,size,color)=> {
+                var label=side.Controls.OfType<Label>().First(c=>c.Text==oldText);label.Text=newText;
+                label.SetBounds(18,y,254,height);label.Font=new Font("Segoe UI",size,label.Font.Style);label.ForeColor=color;
+            };
+            sideLabel("02  CONNECT & CHOOSE","2. SOULSEEK ACCOUNT",16,22,10,Accent);
+            sideLabel("Soulseek account","Sign in to download",46,28,16,Color.White);
+            var accountHelp=side.Controls.OfType<Button>().First(c=>c.Text=="Soulseek account setup");
+            accountHelp.Text="Create Soulseek account";accountHelp.Font=new Font("Segoe UI",9,FontStyle.Bold);accountHelp.SetBounds(18,82,254,34);
+            sideLabel("Username","Username",128,20,9,Muted);username.SetBounds(18,149,254,28);
+            sideLabel("Password","Password",191,20,9,Muted);password.SetBounds(18,212,254,28);
+            remember.SetBounds(18,250,254,38);remember.Text="Remember password on this Windows account";
+            LabelAt(side,"Download preferences",18,301,254,25,13,Color.White,true);
+            sideLabel("Quality / speed preference","Quality / speed",338,20,9,Muted);quality.SetBounds(18,360,254,32);
+            quality.FlatAppearance.BorderColor=Color.FromArgb(66,80,95);
+            sideLabel("Parallel tracks","Concurrent jobs",409,22,10,Color.White);
+            parallel8.SetBounds(18,437,65,28);parallel20.SetBounds(100,437,65,28);parallel32.SetBounds(185,437,65,28);
+            LabelAt(side,"Includes searches and queued songs.",18,469,254,22,9,Muted,false);
+            strict.SetBounds(18,504,254,30);
+            sideLabel("Tighter matching can leave more tracks missing.","Stricter matches can leave more songs unavailable.",537,36,9,Muted);
+            var oldSpotifyTitle=side.Controls.OfType<Label>().First(c=>c.Text=="Spotify link import");oldSpotifyTitle.Visible=false;
+            var help=side.Controls.OfType<Button>().First(c=>c.Text=="Setup help");
+            spotifySetup=new Panel {Location=new Point(18,625),Size=new Size(254,175),Visible=false,BackColor=Surface};
+            side.Controls.Add(spotifySetup);spotifySetup.Controls.AddRange(new Control[]{spotifyStatus,clientId,connect,help});
+            spotifyStatus.Text="Optional. CSV import works without Spotify.";spotifyStatus.SetBounds(0,0,254,38);
+            LabelAt(spotifySetup,"Spotify Web API Client ID",0,44,254,20,9,Muted,false);
+            clientId.SetBounds(0,67,254,28);connect.SetBounds(0,106,156,34);help.Text="Help";help.SetBounds(164,106,90,34);
+            connect.Text="Connect";
+            spotifySetupToggle=ButtonAt(side,"Spotify link setup ▾",18,585,254,false);
+            spotifySetupToggle.AccessibleName="Show or hide optional Spotify setup";
+            spotifySetupToggle.Click+=delegate {SetSpotifySetupVisible(!spotifySetup.Visible);};
+            engineStatus.SetBounds(18,631,254,42);engineStatus.Text=File.Exists(EnginePath) ? "Engine ready · Sockseek 3.0.5" : "Engine missing. Restore the engine folder.";
+            SetSpotifySetupVisible(false);
+            Action fitSettings=delegate {
+                side.Width=Math.Max(250,settingsViewport.ClientSize.Width-SystemInformation.VerticalScrollBarWidth);
+                int width=side.Width-36;
+                foreach(Control control in side.Controls)if(control.Left==18 && !(control is RadioButton))control.Width=width;
+                spotifyStatus.Width=clientId.Width=width;
+                connect.Width=width-96;help.Left=width-90;
+            };
+            settingsViewport.ClientSizeChanged+=delegate {fitSettings();};
+
+            // Maintenance actions share one menu instead of competing with Start.
+            libraryTools=ButtonAt(footer,"Library tools ▾",0,0,144,false);
+            libraryTools.AccessibleName="Library tools: verify, repair, retry list and export";
+            var tools=UiStyle.Menu();
+            var quick=tools.Items.Add("Check FLAC headers");quick.Click+=async delegate {await CheckFiles();};
+            var full=tools.Items.Add("Full audio check...");full.Click+=async delegate {
+                using(var choose=new OpenFileDialog {Title="Select official FLAC decoder",Filter="FLAC decoder (flac.exe)|flac.exe"})
+                    if(choose.ShowDialog(this)==DialogResult.OK)await CheckFiles(choose.FileName);
+            };
+            var repair=tools.Items.Add("Preview and repair library...");repair.Click+=async delegate {await FixLibrary();};
+            tools.Items.Add(new ToolStripSeparator());
+            var saved=tools.Items.Add("Review saved retries...");saved.Click+=delegate {ShowSavedRetries();};
+            var missing=tools.Items.Add("Export unavailable songs as CSV...");missing.Click+=delegate {ExportMissingSongs();};
+            tools.Opening+=delegate {quick.Enabled=full.Enabled=!busy;repair.Enabled=!busy && playlist!=null && playlist.Tracks.Count>0;saved.Enabled=!busy;missing.Enabled=!busy && !preview && playlist!=null;};
+            libraryTools.Click+=delegate {tools.Show(libraryTools,new Point(0,libraryTools.Height));};
+            libraryTools.ContextMenuStrip=tools;
+            libraryTools.Disposed+=delegate {tools.Dispose();};
+            verify.Visible=fix.Visible=waiting.Visible=activity.Visible=false;
+            start.Text="Download FLAC";retry.Text="Retry missing";browse.Text="Browse";open.Text="Open folder";import.Text="Import CSV";
+            autoRetry.Text="Retry unavailable songs while open";autoRetry.Font=new Font("Segoe UI",9);
+
+            emptyQueue=new Panel {BackColor=Surface};queue.Controls.Add(emptyQueue);
+            var emptyTitle=LabelAt(emptyQueue,"Add your first tracklist",24,25,330,32,17,Color.White,true);
+            var emptyHint=LabelAt(emptyQueue,"Import a CSV with song titles and artists,\nor load a Spotify playlist or album link.",24,62,420,48,10,Muted,false);
+            var emptyImport=ButtonAt(emptyQueue,"Import CSV",24,122,145,true);emptyImport.Click+=delegate {import.PerformClick();};
+            emptyQueue.BringToFront();emptyQueue.Visible=playlist==null;
+            tracks.Visible=playlist!=null;
+            queueHint.Visible=playlist!=null;
+            playlistLabel.Text="Your songs";countLabel.Text="Choose a tracklist to build your download queue.";countLabel.Font=new Font("Segoe UI",9);countLabel.AutoEllipsis=true;
             Action arrange=delegate {
                 int w=Math.Max(430,importPanel.ClientSize.Width);
-                badge.SetBounds(Math.Max(0,header.Width-170),2,170,22);
-                importLabel.SetBounds(0,2,w,22);source.SetBounds(0,31,w-242,30);load.Text="Load link";load.SetBounds(w-232,29,112,36);import.Text="CSV";import.SetBounds(w-112,29,112,36);
-                playlistLabel.SetBounds(0,8,queue.Width,30);countLabel.SetBounds(0,42,queue.Width,28);findLabel.SetBounds(0,80,38,24);queueSearch.SetBounds(42,76,Math.Max(80,queue.Width-314),26);queueFilter.SetBounds(Math.Max(90,queue.Width-262),76,142,26);visibleCount.SetBounds(Math.Max(240,queue.Width-112),80,112,22);tracks.SetBounds(0,110,queue.Width,Math.Max(60,queue.Height-118));
-                int available=Math.Max(410,tracks.ClientSize.Width-20);tracks.Columns[0].Width=38;tracks.Columns[3].Width=52;tracks.Columns[4].Width=112;tracks.Columns[1].Width=(available-202)*55/100;tracks.Columns[2].Width=available-202-tracks.Columns[1].Width;
-                outputLabel.SetBounds(0,0,w,22);destination.SetBounds(0,27,w-212,30);browse.Text="Select";browse.SetBounds(w-202,25,94,36);open.Text="Open";open.SetBounds(w-100,25,100,36);
-                start.SetBounds(0,72,164,40);stop.SetBounds(172,72,76,40);retry.SetBounds(256,72,136,40);
-                verify.SetBounds(0,120,124,34);fix.SetBounds(132,120,124,34);waiting.SetBounds(264,120,148,34);
-                status.SetBounds(0,162,w,22);progress.SetBounds(0,190,w,4);transferStatus.SetBounds(0,200,w,21);
-                autoRetry.SetBounds(0,228,w,28);autoRetry.Text="Automatically retry unavailable songs while open";
-                activity.Visible=false;
+                brand.Width=Math.Max(200,header.Width-270);badge.SetBounds(Math.Max(0,header.Width-260),0,260,24);
+                subtitle.Width=Math.Max(200,header.Width-130);activityButton.SetBounds(Math.Max(0,header.Width-108),32,108,32);
+                importLabel.SetBounds(0,0,w,20);source.SetBounds(0,28,w-254,28);load.SetBounds(w-244,25,112,34);import.SetBounds(w-124,25,124,34);importHint.SetBounds(0,64,w,22);
+                playlistLabel.SetBounds(0,0,queue.Width,28);countLabel.SetBounds(0,32,queue.Width,34);
+                queueSearch.SetBounds(0,72,Math.Max(80,queue.Width-252),28);queueFilter.SetBounds(Math.Max(90,queue.Width-242),71,142,30);visibleCount.SetBounds(Math.Max(240,queue.Width-90),73,90,26);
+                tracks.SetBounds(0,108,queue.Width,Math.Max(60,queue.Height-134));queueHint.SetBounds(0,Math.Max(170,queue.Height-22),queue.Width,22);
+                int available=Math.Max(410,tracks.ClientSize.Width-20);tracks.Columns[0].Width=38;tracks.Columns[3].Width=52;tracks.Columns[4].Width=112;
+                tracks.Columns[1].Width=(available-202)*55/100;tracks.Columns[2].Width=available-202-tracks.Columns[1].Width;
+                outputLabel.SetBounds(0,0,w,18);destination.SetBounds(0,23,w-262,28);browse.SetBounds(w-252,20,100,34);open.SetBounds(w-144,20,144,34);
+                start.SetBounds(0,64,182,40);stop.SetBounds(190,64,86,40);retry.SetBounds(284,64,146,40);
+                libraryTools.SetBounds(0,114,158,32);autoRetry.SetBounds(170,113,Math.Max(180,w-170),34);
+                status.SetBounds(0,154,w,22);progress.SetBounds(0,179,w,5);transferStatus.SetBounds(0,192,w,21);
+                emptyQueue.SetBounds(0,108,queue.Width,Math.Max(80,queue.Height-112));
+                emptyTitle.Width=Math.Max(200,queue.Width-48);emptyHint.Width=Math.Max(200,queue.Width-48);
+                emptyTitle.Top=Math.Max(8,(emptyQueue.Height-170)/2);emptyHint.Top=emptyTitle.Top+40;
+                emptyHint.Visible=emptyQueue.Height>=160;emptyImport.Top=emptyTitle.Top+(emptyHint.Visible ? 98 : 40);
             };
-            var activityButton=ButtonAt(header,"Activity",0,0,100,false);activityButton.Click+=delegate { ShowActivityLog(); };
-            bool arranging=false;
-            Action arrangeCurrent=delegate {
-                if(arranging)return;
-                arranging=true;
-                try {arrange();activityButton.SetBounds(Math.Max(0,header.Width-108),32,108,32);}
-                finally {arranging=false;}
-            };
-            // TableLayoutPanel.Layout can run before its children's final sizes
-            // are assigned (notably on minimize/restore). Reflow each section
-            // when its actual size changes, so zero-width controls recover.
-            layout.Layout+=delegate {arrangeCurrent();};
-            foreach(var section in new Control[]{header,importPanel,queue,footer})
-                section.ClientSizeChanged+=delegate {arrangeCurrent();};
-            MinimumSize=new Size(850,650);
-            var area=Screen.FromControl(this).WorkingArea;ClientSize=new Size(Math.Min(1240,area.Width-64),Math.Min(900,area.Height-80));arrange();
+            bool arranging=false;Action arrangeCurrent=delegate {if(arranging)return;arranging=true;try {arrange();}finally {arranging=false;}};
+            layout.Layout+=delegate {arrangeCurrent();};foreach(var section in new Control[]{header,importPanel,queue,footer})section.ClientSizeChanged+=delegate {arrangeCurrent();};
+            MinimumSize=new Size(850,650);var area=Screen.FromControl(this).WorkingArea;
+            header.TabIndex=3;importPanel.TabIndex=0;queue.TabIndex=1;footer.TabIndex=2;settingsViewport.TabIndex=4;
+            source.TabIndex=0;load.TabIndex=1;import.TabIndex=2;destination.TabIndex=0;browse.TabIndex=1;open.TabIndex=2;start.TabIndex=3;stop.TabIndex=4;retry.TabIndex=5;libraryTools.TabIndex=6;autoRetry.TabIndex=7;
+            username.TabIndex=0;password.TabIndex=1;remember.TabIndex=2;quality.TabIndex=3;parallel8.TabIndex=4;parallel20.TabIndex=5;parallel32.TabIndex=6;strict.TabIndex=7;spotifySetupToggle.TabIndex=8;spotifySetup.TabIndex=9;accountHelp.TabIndex=10;
+            ClientSize=new Size(Math.Min(1240,area.Width-64),Math.Min(900,area.Height-80));arrange();fitSettings();
+        }
 
+        private void SetSpotifySetupVisible(bool visible)
+        {
+            if(spotifySetup==null)return;
+            spotifySetup.Visible=visible;
+            spotifySetupToggle.Text=visible ? "Spotify link setup ▴" : "Spotify link setup ▾";
+            engineStatus.Top=visible ? 809 : 631;settingsContent.Height=visible ? 865 : 690;
+            var viewport=settingsContent.Parent as ScrollableControl;
+            if(viewport!=null && settingsContent.Visible)viewport.ScrollControlIntoView(visible ? (Control)spotifySetup : username);
         }
 
         private Label LabelAt(Control parent, string text, int x, int y, int width, int height, float size, Color color, bool bold)
@@ -269,7 +369,7 @@ namespace PlaylistFlac
         }
         private Button ButtonAt(Control parent, string text, int x, int y, int width, bool primary)
         {
-            var c = new Button { Image=UiIcons.Create(text,primary ? Background : Accent), ImageAlign=ContentAlignment.MiddleLeft, TextImageRelation=TextImageRelation.ImageBeforeText, Padding=new Padding(5,0,5,0), Text = text, Location = new Point(x, y), Size = new Size(width, 35), FlatStyle = FlatStyle.Flat, BackColor = primary ? Accent : Inset, ForeColor = primary ? Background : Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 10, FontStyle.Bold), UseVisualStyleBackColor = false };
+            var c = new UiActionButton { Image=UiIcons.Create(text,primary ? Background : Accent), ImageAlign=ContentAlignment.MiddleLeft, TextImageRelation=TextImageRelation.ImageBeforeText, Padding=new Padding(5,0,5,0), Text = text, Location = new Point(x, y), Size = new Size(width, 35), FlatStyle = FlatStyle.Flat, BackColor = primary ? Accent : Inset, ForeColor = primary ? Background : Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 10,FontStyle.Bold), UseVisualStyleBackColor = false };
             c.FlatAppearance.BorderSize = 1; c.FlatAppearance.BorderColor=primary ? Accent : Color.FromArgb(53,64,77); c.FlatAppearance.MouseOverBackColor=primary ? Color.FromArgb(166,245,209) : Color.FromArgb(46,57,70); c.Disposed+=delegate {if(c.Image!=null)c.Image.Dispose();}; parent.Controls.Add(c); return c;
         }
         private void Build()
@@ -298,7 +398,7 @@ namespace PlaylistFlac
             tracks.DrawSubItem += delegate(object sender, DrawListViewSubItemEventArgs e) { using (var b = new SolidBrush(e.Item.Selected ? Color.FromArgb(40,65,64) : (e.ItemIndex%2==0 ? Surface : Color.FromArgb(28,35,43)))) e.Graphics.FillRectangle(b, e.Bounds); var r = e.Bounds; r.X += 8; r.Width -= 8; TextRenderer.DrawText(e.Graphics, e.SubItem.Text, tracks.Font, r, e.ColumnIndex == 4 ? UiIcons.StatusColor(e.SubItem.Text) : (e.ColumnIndex==0 || e.ColumnIndex==3 ? Muted : Color.White), TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis); };
             Controls.Add(tracks);
             tracks.MultiSelect=true;
-            var trackMenu=new ContextMenuStrip();
+            var trackMenu=UiStyle.Menu();
             var downloadSelected=trackMenu.Items.Add("Download selected songs");
             downloadSelected.Click+=async delegate {
                 if(busy || playlist==null)return;
@@ -401,7 +501,7 @@ namespace PlaylistFlac
             start.Click += async delegate { await Download(false); };
             retry.Click += async delegate { await Download(true); };
             stop.Click += delegate { retriesArmed=false; if (operation != null) { status.Text = "Stopping..."; operation.Cancel(); stop.Enabled = false; } };
-            var auditMenu=new ContextMenuStrip();var quick=auditMenu.Items.Add("Quick header check");quick.Click+=async delegate {await CheckFiles();};
+            var auditMenu=UiStyle.Menu();var quick=auditMenu.Items.Add("Quick header check");quick.Click+=async delegate {await CheckFiles();};
             verify.Click+=delegate {auditMenu.Show(verify,new Point(0,verify.Height));};
             var deep=auditMenu.Items.Add("Full audio check (requires official flac.exe)...");
             deep.Click+=async delegate {using(var choose=new OpenFileDialog {Title="Select official FLAC decoder",Filter="FLAC decoder (flac.exe)|flac.exe"})if(choose.ShowDialog(this)==DialogResult.OK)await CheckFiles(choose.FileName);};verify.ContextMenuStrip=auditMenu;
@@ -410,12 +510,7 @@ namespace PlaylistFlac
             progress = new ProgressBar { Location = new Point(30, 718), Size = new Size(770, 5), Style = ProgressBarStyle.Continuous, Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right }; Controls.Add(progress);
             activity = new TextBox { Location = new Point(30, 735), Size = new Size(770, 62), Multiline = true, ReadOnly = true, BorderStyle = BorderStyle.None, BackColor = Background, ForeColor = Muted, ScrollBars = ScrollBars.Vertical, Font = new Font("Segoe UI", 9), Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right }; Controls.Add(activity);
             waiting=ButtonAt(this,"Saved retries",630,805,170,false);waiting.Anchor=AnchorStyles.Bottom|AnchorStyles.Left;
-            waiting.Click+=delegate {
-                retryReviewOpen=true;retryTimer.Stop();
-                try {using(var window=new RetryReview(AppState.StateDirectory))window.ShowDialog(this); if(playlist!=null && currentFolder!=null){waitingRetries=new RetryList(AppState.StateDirectory,currentFolder,playlist).Count;UpdateSummary();}}
-                catch(Exception ex) {ShowError("Saved retries could not be read: "+ex.Message);}
-                finally {retryReviewOpen=false;retryTimer.Start();}
-            };
+            waiting.Click+=delegate {ShowSavedRetries();};
             transferStatus=LabelAt(this,"Transfer speed appears when bytes arrive",30,727,770,22,9,Muted,false);transferStatus.Anchor=AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;
             activity.Location=new Point(30,751);activity.Height=46;
             autoRetry=new CheckBox {Text="Retry unavailable songs automatically while open",Location=new Point(30,805),Size=new Size(590,28),ForeColor=Muted,Anchor=AnchorStyles.Bottom|AnchorStyles.Left};Controls.Add(autoRetry);
@@ -459,6 +554,7 @@ namespace PlaylistFlac
             retry.Enabled = start.Enabled;
             fix.Enabled = !value && playlist != null && playlist.Tracks.Count > 0;
             stop.Enabled = value; progress.Style = ProgressBarStyle.Continuous;
+            if(libraryTools!=null)libraryTools.Enabled=!value;
             if (!value) { lastTransferEvent=DateTime.MinValue; transferStatus.Text="Transfers stopped"; if (operation != null) operation.Dispose(); operation = null; if (closeRequested && !IsDisposed) BeginInvoke(new Action(Close)); }
         }
         private void Log(string message)
@@ -475,6 +571,14 @@ namespace PlaylistFlac
             if(!activityWindow.Visible)activityWindow.Show(this);
             if(activityWindow.WindowState==FormWindowState.Minimized)activityWindow.WindowState=FormWindowState.Normal;
             activityWindow.Activate();
+        }
+        private void ShowSavedRetries()
+        {
+            if(busy)return;
+            retryReviewOpen=true;retryTimer.Stop();
+            try {using(var window=new RetryReview(AppState.StateDirectory))window.ShowDialog(this);if(playlist!=null && currentFolder!=null){waitingRetries=new RetryList(AppState.StateDirectory,currentFolder,playlist).Count;UpdateSummary();}}
+            catch(Exception ex) {ShowError("Saved retries could not be read: "+ex.Message);}
+            finally {retryReviewOpen=false;retryTimer.Start();}
         }
         private void FlushLog()
         {
@@ -499,6 +603,7 @@ namespace PlaylistFlac
         private async Task ConnectSpotify()
         {
             if (busy) return;
+            SetSpotifySetupVisible(true);
             if (String.IsNullOrWhiteSpace(clientId.Text)) { ShowHelp(); return; }
             operation = new CancellationTokenSource(TimeSpan.FromMinutes(4)); SetBusy(true); status.Text = "Waiting for Spotify sign-in...";
             try { await spotify.ConnectAsync(clientId.Text.Trim(), operation.Token); spotifyStatus.Text = "Connected for this session. Playlist and album links are ready."; spotifyStatus.ForeColor = Accent; Log("Spotify connected. Tokens remain in memory for this session."); status.Text = "Spotify connected"; SaveSettings(); }
@@ -536,11 +641,13 @@ namespace PlaylistFlac
             {
                 Track t=group.Representative;
                 var row = new ListViewItem((++i).ToString("00")); row.SubItems.Add(t.Title); row.SubItems.Add(t.Artist);
+                row.ToolTipText=t.Title+Environment.NewLine+t.Artist+(String.IsNullOrEmpty(t.Album) ? "" : Environment.NewLine+t.Album);
                 int seconds = (int)Math.Max(0, t.DurationSeconds); row.SubItems.Add(seconds > 0 ? (seconds / 60).ToString() + ":" + (seconds % 60).ToString("00") : "--"); row.SubItems.Add("Ready"); row.Tag = t; allRows.Add(row); tracks.Items.Add(row);
                 foreach(string key in group.Tracks.Select(IndexStore.Key).Distinct()) AddRow(rowsByKey,key,row);
                 AddRow(rowsByQuery,QueryKey(t.Artist,t.Title),row);
             }
-            tracks.EndUpdate(); countLabel.Text = p.Tracks.Count + " tracks  /  FLAC only" + (p.SkippedTracks > 0 ? "  /  " + p.SkippedTracks + " unavailable or incomplete entries skipped" : "");
+            tracks.EndUpdate();if(emptyQueue!=null){bool hasRows=allRows.Count>0;emptyQueue.Visible=!hasRows;tracks.Visible=queueHint.Visible=queueSearch.Enabled=queueFilter.Enabled=hasRows;}
+            countLabel.Text = p.Tracks.Count + " tracks  /  FLAC only" + (p.SkippedTracks > 0 ? "  /  " + p.SkippedTracks + " unavailable or incomplete entries skipped" : "");
             progress.Value = 0; status.Text = "Ready to download"; start.Enabled = !busy && p.Tracks.Count > 0 && File.Exists(EnginePath); retry.Enabled = start.Enabled;
             fix.Enabled = !busy && p.Tracks.Count > 0;
             RestoreStatus(true);
@@ -688,8 +795,8 @@ namespace PlaylistFlac
             if(playlist==null || progressState==null)return;
             var states=new Dictionary<string,string>();
             foreach(var group in recordingGroups.Groups)foreach(var track in group.Tracks)states[IndexStore.Key(track)]=progressState.Status(IndexStore.Key(group.Representative));
-            using(var window=new Form {Text="Album availability in this tracklist",Size=new Size(720,540),StartPosition=FormStartPosition.CenterParent})
-            using(var text=new TextBox {Text=AlbumAvailability.Describe(playlist,states),ReadOnly=true,Multiline=true,ScrollBars=ScrollBars.Both,Dock=DockStyle.Fill}){window.Controls.Add(text);window.ShowDialog(this);}
+            using(var window=new Form {Text="Album availability in this tracklist",Size=new Size(720,540),StartPosition=FormStartPosition.CenterParent,BackColor=Background,ForeColor=Color.White})
+            using(var text=new TextBox {Text=AlbumAvailability.Describe(playlist,states),ReadOnly=true,Multiline=true,ScrollBars=ScrollBars.Both,Dock=DockStyle.Fill,BackColor=Surface,ForeColor=Color.White,BorderStyle=BorderStyle.None,Font=Font}){window.Controls.Add(text);window.ShowDialog(this);}
         }
         private void ExportMissingSongs()
         {
@@ -741,10 +848,14 @@ namespace PlaylistFlac
         private void UpdateSummary()
         {
             if(progressState==null)return;
-            countLabel.Text=progressState.Total+" songs  /  "+(playlist.Tracks.Count-progressState.Total)+" repeats skipped  /  "+progressState.Completed+" downloaded  /  "+progressState.Failed+" missing  /  "+progressState.Ready+" left";
-            if(progressState.Review>0)countLabel.Text+="  /  "+progressState.Review+" need review";
-            if(playlist.SkippedTracks>0)countLabel.Text+="  /  "+playlist.SkippedTracks+" skipped";
-            if(waitingRetries>0)countLabel.Text+="  /  "+waitingRetries+" waiting to retry";
+            countLabel.Text=progressState.Completed+" of "+progressState.Total+" downloaded · "+progressState.Ready+" unfinished · "+progressState.Failed+" unavailable";
+            string extra=(playlist.Tracks.Count-progressState.Total)+" duplicate entries skipped";
+            if(progressState.Review>0)extra+=" · "+progressState.Review+" need review";
+            if(playlist.SkippedTracks>0)extra+=" · "+playlist.SkippedTracks+" incomplete entries skipped";
+            if(waitingRetries>0)extra+=" · "+waitingRetries+" saved retries";
+            uiTips.SetToolTip(countLabel,extra);uiTips.SetToolTip(queueHint,extra+"\r\nDouble-click for details; right-click for file actions.");
+            int duplicates=playlist.Tracks.Count-progressState.Total;
+            queueHint.Text=progressState.Review>0 ? progressState.Review+" need review · Right-click for song actions" : duplicates>0 ? duplicates+" duplicate entries skipped · Right-click for song actions" : "Double-click for details · Right-click for file actions";
             progress.Style=ProgressBarStyle.Continuous;progress.Maximum=Math.Max(1,progressState.Total);progress.Value=Math.Min(progress.Maximum,progressState.Completed);
         }
         internal Task ResumeDownload() { return Download(false); }
@@ -759,9 +870,9 @@ namespace PlaylistFlac
                 status.Text="Preparing repair preview...";
                 string plan=await Task.Run(()=>LibraryRepairPreview.Describe(currentFolder,playlist,operation.Token));
                 operation.Token.ThrowIfCancellationRequested();
-                using(var review=new Form {Text="Review library repairs",Size=new Size(720,540),StartPosition=FormStartPosition.CenterParent})
-                using(var description=new TextBox {Text=plan,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Both,Dock=DockStyle.Fill})
-                using(var apply=new Button {Text="Apply repairs",Dock=DockStyle.Bottom,Height=40,DialogResult=DialogResult.OK})
+                using(var review=new Form {Text="Review library repairs",Size=new Size(720,540),StartPosition=FormStartPosition.CenterParent,BackColor=Background,ForeColor=Color.White})
+                using(var description=new TextBox {Text=plan,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Both,Dock=DockStyle.Fill,BackColor=Surface,ForeColor=Color.White,BorderStyle=BorderStyle.None,Font=Font})
+                using(var apply=new Button {Text="Apply repairs",Dock=DockStyle.Bottom,Height=40,DialogResult=DialogResult.OK,BackColor=Accent,ForeColor=Background,FlatStyle=FlatStyle.Flat,Font=Font})
                 {
                     review.Controls.Add(description);review.Controls.Add(apply);
                     if(review.ShowDialog(this)!=DialogResult.OK){status.Text="Repairs cancelled; no changes applied";return;}

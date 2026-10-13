@@ -1,5 +1,13 @@
 # Release validation
 
+## Local 1.16.0 UI verification (2026-10-13)
+
+All 33 automated suites passed with zero failures or skips against the final executable. Layout checks cover normal and minimum sizes, resize/minimize recovery, action captions, optional setup, empty-state import, and busy-state menu availability. Synthetic renders were inspected at 1240×900 and 850×650.
+
+The running isolated app imported a two-song synthetic CSV through the native picker. Ctrl+F narrowed the queue to one song and Escape restored both. The Library tools menu opened saved retry review successfully. Selecting Balanced changed the quality caption; optional Spotify setup expanded with vertical scrolling and collapsed again. No private settings, credentials, or music were used.
+
+This revision changes presentation and menu wiring. No new live peer download was run for 1.16.0; the preceding 1.15.3 live results remain below. Authenticated Spotify import remains untested without a Web API Client ID.
+
 ## 1.15.3 live release verification
 
 The exact 1.15.3 executable was tested in isolated storage through a fresh CSV/Soulseek workflow. All 21 live harness assertions passed. Two English songs completed first; the Japanese song was initially unavailable and completed on the next attempt, while completed songs were preserved. Four CSV rows produced exactly three distinct recordings. A completed restart issued zero searches. Live byte progress was observed, including two simultaneous moving transfers in the first run. Peak sampled aggregate speed was about 9.6 MiB/s across the runs; this is peer-dependent, not sustained throughput or a guarantee of twenty simultaneous transfers.
