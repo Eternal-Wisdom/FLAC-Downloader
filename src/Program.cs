@@ -147,6 +147,7 @@ namespace PlaylistFlac
         private Label visibleCount;
         private readonly List<ListViewItem> allRows=new List<ListViewItem>();
         private bool filterDirty;
+        private bool summaryDirty;
         private Panel spotifySetup,settingsContent,emptyQueue;
         private Button spotifySetupToggle,libraryTools;
         private Label queueHint;
@@ -178,7 +179,7 @@ namespace PlaylistFlac
             Build(); FitWindow(); if(!previewMode)LoadSettings();
             autoRetry.CheckedChanged += delegate { retriesArmed=autoRetry.Checked; SaveSettings(); };
             retryTimer.Tick += async delegate { await RetryWaiting(); }; retryTimer.Start();
-            uiTimer.Tick += delegate { FlushLog(); if(filterDirty)ApplyQueueFilter(); if(busy && lastTransferEvent!=DateTime.MinValue && (DateTime.UtcNow-lastTransferEvent).TotalSeconds>4) transferStatus.Text="Waiting for transfer progress"; }; uiTimer.Start();
+            uiTimer.Tick += delegate { FlushLog(); if(summaryDirty)UpdateSummary(); if(filterDirty)ApplyQueueFilter(); if(busy && lastTransferEvent!=DateTime.MinValue && (DateTime.UtcNow-lastTransferEvent).TotalSeconds>4) transferStatus.Text="Waiting for transfer progress"; }; uiTimer.Start();
             FormClosed += delegate { uiTimer.Dispose(); retryTimer.Dispose(); uiTips.Dispose(); };
             FormClosing += delegate(object sender, FormClosingEventArgs e) {
                 if (busy) { e.Cancel = true; closeRequested = true; if (operation != null) operation.Cancel(); status.Text = "Stopping before closing..."; return; }
@@ -555,7 +556,7 @@ namespace PlaylistFlac
             fix.Enabled = !value && playlist != null && playlist.Tracks.Count > 0;
             stop.Enabled = value; progress.Style = ProgressBarStyle.Continuous;
             if(libraryTools!=null)libraryTools.Enabled=!value;
-            if (!value) { lastTransferEvent=DateTime.MinValue; transferStatus.Text="Transfers stopped"; if (operation != null) operation.Dispose(); operation = null; if (closeRequested && !IsDisposed) BeginInvoke(new Action(Close)); }
+            if (!value) { if(summaryDirty)UpdateSummary(); lastTransferEvent=DateTime.MinValue; transferStatus.Text="Transfers stopped"; if (operation != null) operation.Dispose(); operation = null; if (closeRequested && !IsDisposed) BeginInvoke(new Action(Close)); }
         }
         private void Log(string message)
         {
@@ -734,6 +735,7 @@ namespace PlaylistFlac
             if(affected==null && !String.IsNullOrEmpty(update.Title)) rowsByQuery.TryGetValue(QueryKey(update.Artist,update.Title),out affected);
             if(affected!=null && progressState!=null)
             {
+                bool changed=false;
                 string next=update.Status ?? "";
                 if(next=="Succeeded" || next=="1")next="Downloaded";
                 else if(next.StartsWith("Failed",StringComparison.Ordinal) || next.StartsWith("PartialSuccess",StringComparison.Ordinal) || next=="2" || next=="5")next="Failed";
@@ -742,12 +744,16 @@ namespace PlaylistFlac
                 {
                     string key=IndexStore.Key((Track)row.Tag);
                     TrackDetails details;if(!sourceDetails.TryGetValue(key,out details)){details=new TrackDetails();sourceDetails.Add(key,details);}details.Observe(update);
-                    if(next=="Failed")failureReasons[key]=update.Status; progressState.Set(key,next); row.SubItems[4].Text=progressState.Status(key);
+                    if(next=="Failed")failureReasons[key]=update.Status;
+                    if(progressState.Set(key,next)){changed=true;row.SubItems[4].Text=progressState.Status(key);}
                 }
                 // Text searches do not depend on status. Only status filters need
                 // another membership scan when a transfer reports progress.
-                if(Convert.ToString(queueFilter.SelectedItem)!="All songs")filterDirty=true;
-                UpdateSummary();
+                if(changed && Convert.ToString(queueFilter.SelectedItem)!="All songs")filterDirty=true;
+                if(changed) {
+                    if(next=="Downloaded" || next=="Failed")UpdateSummary();
+                    else summaryDirty=true;
+                }
                 status.Text=next=="Failed" ? "A track is unavailable; continuing" : next=="Downloaded" ? "Downloaded "+progressState.Completed+" of "+progressState.Total : next;
             }
         }
@@ -847,6 +853,7 @@ namespace PlaylistFlac
         }
         private void UpdateSummary()
         {
+            summaryDirty=false;
             if(progressState==null)return;
             countLabel.Text=progressState.Completed+" of "+progressState.Total+" downloaded · "+progressState.Ready+" unfinished · "+progressState.Failed+" unavailable";
             string extra=(playlist.Tracks.Count-progressState.Total)+" duplicate entries skipped";
