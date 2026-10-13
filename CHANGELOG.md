@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.16.1
+
+- Avoid repainting song status, rebuilding summaries, or rescanning status filters when repeated transfer events do not change song status. Keep source telemetry observation active.
+- Batch nonterminal summary refreshes through the existing 200 ms UI timer, while completion, failure, and stopping flush immediately.
+- Add an optional REA compiled-release inspection for developers; REA is not bundled or required by users.
+
 ## 1.16.0
 
 - Reorganize the main window into Add music, Soulseek account, and Save music steps, with a useful empty-queue import prompt.

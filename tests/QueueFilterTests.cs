@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Diagnostics;
 using System.Collections.Generic;
@@ -27,6 +27,22 @@ internal static class QueueFilterTests
             var updateTimer=Stopwatch.StartNew();while(list.Items.Count==0 && updateTimer.ElapsedMilliseconds<2000){Application.DoEvents();Thread.Sleep(10);}
             if(list.Items.Count!=1 || ((Track)list.Items[0].Tag)!=hiddenTrack)throw new Exception("Live completion of a hidden song did not update the filter.");
             filter.SelectedItem="Waiting";if(list.Items.Count!=total-1)throw new Exception("Waiting filter lost ready songs.");
+            // Repeated byte progress must update source details without rebuilding
+            // summary controls or scheduling another status-filter scan.
+            var liveTrack=(Track)list.Items[0].Tag;
+            var onProgress=typeof(MainForm).GetMethod("OnProgress",BindingFlags.NonPublic|BindingFlags.Instance);
+            var summary=Field<Label>(form,"countLabel");var sentinel="pending summary marker";
+            onProgress.Invoke(form,new object[]{new EngineProgress {TrackKey=IndexStore.Key(liveTrack),Type="download_progress",Status="Downloading"}});
+            typeof(MainForm).GetMethod("UpdateSummary",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(form,null);
+            typeof(MainForm).GetField("filterDirty",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(form,false);
+            summary.Text=sentinel;
+            var burst=Stopwatch.StartNew();
+            for(int i=0;i<10000;i++)onProgress.Invoke(form,new object[]{new EngineProgress {TrackKey=IndexStore.Key(liveTrack),Type="download_progress",Status="Downloading"}});
+            burst.Stop();
+            if(summary.Text!=sentinel || Field<bool>(form,"summaryDirty") || Field<bool>(form,"filterDirty"))throw new Exception("Repeated progress rebuilt summary or filter membership.");
+            onProgress.Invoke(form,new object[]{new EngineProgress {TrackKey=IndexStore.Key(liveTrack),Type="download_complete",Status="Succeeded"}});
+            if(summary.Text==sentinel || Field<bool>(form,"summaryDirty"))throw new Exception("Completion did not flush the summary immediately.");
+            Console.WriteLine("Progress UI: 10,000 repeated events / "+burst.ElapsedMilliseconds+" ms; no redundant summary or filter refresh.");
             if(!QueueFilter.Matches(new Track {Title="夜",Artist="例",Album="作品"},"Downloaded","作品","Completed"))throw new Exception("Unicode album search failed.");
             var sample=new Track {Title="夜",Artist="Example",Album=null};
             foreach(string query in new[]{"夜","example","夜\nExample","missing","  Example  ",""})
