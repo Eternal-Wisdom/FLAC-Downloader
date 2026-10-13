@@ -1,5 +1,9 @@
 # Release validation
 
+## Local 1.16.1 progress display verification
+
+All 33 suites passed. A 10,000-event synthetic burst verified that unchanged progress status does not rebuild the summary or rescan a status filter, and that completion flushes immediately. Source-details observation still runs for each event. A comparison with 1.16.0 measured 679 ms versus 43 ms for that event path. This is a UI microbenchmark, not a Soulseek speed measurement. No new online download or authenticated Spotify test was run for this display-only change. See REA-DOWNLOADER-REVIEW.md for upstream evidence and limitations.
+
 ## Local 1.16.0 UI verification (2026-10-13)
 
 All 33 automated suites passed with zero failures or skips against the final executable. Layout checks cover normal and minimum sizes, resize/minimize recovery, action captions, optional setup, empty-state import, and busy-state menu availability. Synthetic renders were inspected at 1240×900 and 850×650.
