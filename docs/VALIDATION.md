@@ -1,5 +1,67 @@
 # Release validation
 
+## Release 1.17.6 live verification (completed 2026-10-17)
+
+The installed 1.17.6 executable was copied into isolated test folders and hash-matched before testing. All 21 online backend assertions passed, and the full regression run passed 35 suites with zero failures or skips. Test account settings were cleared afterward. No private music or personal diagnostic logs are included in the release.
+
+Three distinct English/Japanese recordings downloaded from a four-entry CSV, with the repeated entry skipped. Restart performed zero searches. An unavailable synthetic recording was exported and reimported, retry scheduling remained inactive at 14 minutes and due at 16 minutes, and cancellation after a real search preserved completed audio. Direct artwork, MusicBrainz/Cover Art Archive fallback, downloaded-copy embedding, and a four-file artwork pipeline passed. Full FLAC decoding passed for four backend files and three GUI files without changing their hashes; decoding does not prove lossless source provenance.
+
+The native app started real transfers from the Download button and displayed live status and speed. Force-killing the isolated app stopped its real engine; reopening removed its abandoned temporary sign-in file. Resume finished all three recordings and preserved the hash of the recording completed before the crash. The reopened app showed 3 of 3 downloaded, zero unfinished and zero unavailable. Another Download click skipped completed audio and left all audio hashes unchanged. The Activity window updated while open, including completion messages; Ctrl+F, substring filtering and Escape reset passed. A real Windows Recycle Bin test on isolated copies reset the selected recording while preserving the other two.
+
+Observed peak rates were 6,479.2 KiB/s in the first backend pass and 9,327.6 KiB/s during its retry. These are peer-dependent peaks, not sustained benchmarks or evidence of a throughput improvement; only one moving transfer was observed at a time. GUI cover repair reported two covers present and one unavailable. Spotify API import remains excluded because no Web API Client ID is configured. Every concurrency/profile combination and every possible network condition were not tested.
+
+## Local 1.17.6 interrupted-session protection (2026-10-16)
+
+The added Windows tests use synthetic sign-in files and disposable local processes. They exercise abandoned-file cleanup, active lease exclusion, locked-file retry, unrelated-file preservation, directory junction exclusion, cleanup before a mock engine run, kill-on-close job disposal, and force-killing a helper parent while its assigned child is running. They do not access the user's music or saved credentials.
+
+Job containment is best effort: the engine starts before assignment, and Windows may reject assignment. The app logs that failure. Cleanup does not terminate uncontained orphan processes or promise secure erasure of previously deleted files. REA's reviewed native boundary now includes the four Windows job/handle calls in addition to the existing UI message call.
+
+These initial offline checks were followed by the fresh 1.17.6 live verification documented above. Spotify live import remains untested without a Web API Client ID. Earlier network results below remain historical evidence.
+
+## Local 1.17.5 optimization review
+
+All 34 suites passed with zero failures or skips with normal local Windows access. The initial sandboxed run denied temporary-file moves in both existing and changed code; rerunning the same build outside that restriction passed. No new live peer-transfer test was performed for this batch.
+
+The queue sort comparison used 10,000 synthetic rows, ten status sorts per sample, one warm-up and five samples per version. Median elapsed time was 1,050 ms on 1.17.4 and 117 ms on 1.17.5. These are UI computation measurements, not network throughput or whole-app speed measurements.
+
+Regression coverage includes non-finite durations remaining last in both sort directions, stable source order, live status regrouping, and a deliberately failing CSV export preserving the original file without temporary-file residue. Successful replacement is reimported with Unicode intact. CSV writing also reuses its serializer across tracks. No new dependencies or transport/concurrency settings were introduced. Download orchestration, cancellation, artwork processing, retry persistence and file-action code were reviewed; changes in this pass are limited to CSV safety and sorting. Spotify live import remains untested without a Web API Client ID.
+
+## Local 1.17.4 cleanup verification
+
+All 34 suites passed with zero failures or skips on the final executable. Activity regression checks verify that unrelated incoming messages cause no filtered text replacement and preserve the selected text, alongside existing live-update, Unicode and pause/resume tests. This is a display optimization; no network throughput improvement is claimed. The preceding 1.17.3 online results remain historical evidence, not a new online test of 1.17.4.
+
+## 1.17.3 live verification, 2026-10-14
+
+The tested application matched the installed executable hash. All 21 isolated online checks passed: English and Japanese Soulseek downloads, recording deduplication, byte-progress telemetry, hidden legacy playlist preservation, completed-file resolution, restart with zero searches, unavailable-song export, 15-minute retry scheduling, cancellation and artwork HTTP/fallback/embedding workflows. The initial Japanese attempt was unavailable; the next pass succeeded without repeating the completed English songs. Two simultaneous moving transfers were observed in the first run. Reported peak rates are peer-dependent snapshots, not benchmark guarantees.
+
+The actual Windows GUI independently downloaded three distinct recordings from four CSV entries, showed completion and a live-updating open activity log, and left all completed audio unchanged when Download FLAC was pressed again. Native checks exercised clickable sorting, filtered Ctrl+A selection, the selected CSV save dialog, Ctrl+F activity search and Escape clearing. The exported file contained exactly two visible selected songs. A real Windows Recycle Bin test on disposable copies removed only the selected file and reset its indexed status while preserving the other two.
+
+Full FLAC decoding passed for four backend-test files (including an artwork-modified copy) and all three GUI-downloaded files. All 34 offline suites also passed again. No application correction was required. Automatic cover lookup reported three unavailable covers for the GUI fixture; direct artwork, MusicBrainz/Cover Art Archive fallback and embedding tests passed separately. Cover availability and peer availability cannot be guaranteed. Spotify authentication/import remains excluded because no Web API Client ID is configured. These checks do not exhaust every possible peer, playlist, interrupted transfer or Windows environment. Test music and private diagnostics were isolated and are excluded from release packages. Nothing was uploaded.
+
+## Local 1.17.3 activity search verification
+
+All 34 suites passed with zero failures or skips. Activity tests verify case-insensitive filtering, live matching Unicode updates, no-match results, paused snapshot preservation, clearing search and catch-up when following resumes. A synthetic activity-window render was visually reviewed. No new online transfer or authenticated Spotify test was performed for this local log feature.
+
+## Local 1.17.2 selected export verification
+
+All 34 suites passed with zero failures or skips. Synthetic queue tests export two selected filtered songs, exclude hidden rows and source paths, and reimport the CSV with both distinct artists in display order. Existing CSV tests cover Unicode, quotes, commas and durations. No new online transfer or authenticated Spotify test was run for this local export feature.
+
+## Local 1.17.1 selection verification
+
+All 34 suites passed with zero failures or skips on the final executable. Added regression checks require clickable sorting headers and verify that selecting a filtered queue selects only its two visible songs, copying excludes hidden rows, and clearing selection produces empty copied text. Existing sorting, retry, file actions and layout checks pass. No new online transfer or Spotify authentication test was performed for this UI change.
+
+## Local 1.17.0 organization verification
+
+All 34 suites passed with zero failures or skips on the final executable. Sorting tests cover both directions, stable ties, unknown durations, selection preservation, unchanged imported order, source-order restoration and live completion regrouping. Retry tests cover Unicode search, empty matches, filter restoration, Scheduled/Paused/Unreadable views, pause/resume updates, corrupt-file preservation and minimum-width layout. The window caption is checked against assembly version. Synthetic WinForms renders were visually reviewed. REA scope and limitations are in REA-FEATURE-REVIEW.md.
+
+No new online peer transfer or Spotify authentication test was performed for these organization features; no download-speed claim is made. Private music and settings were not used for tests.
+
+## Local 1.16.2 prepared row identity verification
+
+All 33 suites passed with zero failures or skips. Regression checks verify that prepared row identities equal the imported recording identities and that reimport recreates those identities; existing duplicate, Unicode, hidden-row and terminal-progress tests remain passing. Three isolated 10,000-event UI comparisons took 35/36/36 ms on 1.16.1 and 31/31/31 ms on 1.16.2, with Gen0 collections reduced from two to one. This is a modest reduction in UI processing and temporary allocations, not network throughput. No new online peer download or Spotify authentication test was run.
+
+REA 6.4.0 inspected exact copies of Motrix task-manager.ts and task-update-publisher.ts from commit 99a40ab3dd91133056ac2cc08e5bbd90ce3afb9e. Both files parsed without failures and the focused structural graph reported complete coverage. This applies to the supplied two-file slice only; it does not prove complete application or runtime behavior. Direct source review corroborated reuse of stable task identities. No Motrix code or dependency is bundled.
+
 ## Local 1.16.1 progress display verification
 
 All 33 suites passed. A 10,000-event synthetic burst verified that unchanged progress status does not rebuild the summary or rescan a status filter, and that completion flushes immediately. Source-details observation still runs for each event. A comparison with 1.16.0 measured 679 ms versus 43 ms for that event path. This is a UI microbenchmark, not a Soulseek speed measurement. No new online download or authenticated Spotify test was run for this display-only change. See REA-DOWNLOADER-REVIEW.md for upstream evidence and limitations.
