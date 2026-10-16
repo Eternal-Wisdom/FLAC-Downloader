@@ -2,7 +2,7 @@ $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $build=Join-Path $root 'build'
 $dist=Join-Path $root 'dist'
-$version='1.16.1'
+$version='1.17.6'
 if(-not (Test-Path -LiteralPath (Join-Path $build 'FLAC-Downloader.exe'))){throw 'Build the app first.'}
 $receiptPath=Join-Path $build 'tested-build.json'
 if(-not (Test-Path -LiteralPath $receiptPath)){throw 'Run scripts/Test.ps1 successfully before packaging.'}
@@ -12,6 +12,7 @@ if($receipt.app -ne (Get-FileHash -LiteralPath (Join-Path $build 'FLAC-Downloade
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $stage=Join-Path $build ('package-'+[Guid]::NewGuid().ToString('N'))
 $app=Join-Path $stage 'FLAC-Downloader'
+try {
 New-Item -ItemType Directory -Force -Path $app | Out-Null
 Copy-Item -LiteralPath (Join-Path $build 'FLAC-Downloader.exe') -Destination $app
 Copy-Item -LiteralPath (Join-Path $build 'engine') -Destination $app -Recurse
@@ -33,3 +34,10 @@ if(Test-Path -LiteralPath $sourceZip){Remove-Item -LiteralPath $sourceZip}
 $lines=@($portable,$sourceZip) | ForEach-Object { (Get-FileHash -LiteralPath $_).Hash.ToLowerInvariant()+'  '+[IO.Path]::GetFileName($_) }
 [IO.File]::WriteAllLines((Join-Path $dist 'SHA256SUMS.txt'),$lines)
 Write-Output 'Source and portable release packages created without user state or music.'
+} finally {
+    $resolvedStage=[IO.Path]::GetFullPath($stage)
+    $resolvedBuild=[IO.Path]::GetFullPath($build).TrimEnd('\')+'\'
+    if(-not $resolvedStage.StartsWith($resolvedBuild,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolvedStage) -notmatch '^package-[0-9a-f]{32}$'){throw 'Unsafe package staging cleanup path.'}
+    if(Test-Path -LiteralPath $resolvedStage){Remove-Item -LiteralPath $resolvedStage -Recurse -Force}
+}
+
