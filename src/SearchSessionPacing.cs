@@ -9,6 +9,7 @@ namespace PlaylistFlac
     // fresh token buckets in retry passes or a quickly restarted app.
     internal sealed class SearchSessionPacing : IDisposable
     {
+        internal const string LockFileName = "search-session.lock";
         private readonly object gate = new object();
         private readonly FileStream sessionLock;
         private readonly string deadlinePath;
@@ -31,7 +32,7 @@ namespace PlaylistFlac
             while (handle == null)
             {
                 ct.ThrowIfCancellationRequested();
-                try { handle = new FileStream(Path.Combine(root, "search-session.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+                try { handle = new FileStream(Path.Combine(root, LockFileName), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
                 catch (IOException ex)
                 {
                     int code = ex.HResult & 0xffff;
@@ -57,6 +58,15 @@ namespace PlaylistFlac
                 return lease;
             }
             catch { handle.Dispose(); throw; }
+        }
+
+        // Takes the lease only if nobody holds it right now. Returns null when another session owns it
+        // or the lock file cannot be opened; the caller must dispose a non-null result.
+        internal static FileStream TryOpenLease(string root)
+        {
+            try { return new FileStream(Path.Combine(root, LockFileName), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            catch (IOException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
         }
 
         internal static int RemainingDelay(string saved, DateTime now, int maximumMs)

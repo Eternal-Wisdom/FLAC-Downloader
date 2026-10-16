@@ -57,7 +57,9 @@ namespace PlaylistFlac
         private readonly TransferTelemetry telemetry=new TransferTelemetry();
         private readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = 8 * 1024 * 1024 };
 
-        public DownloadEngine() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PlaylistFlac", "engine-runs")) { }
+        internal static string DefaultStateRoot { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PlaylistFlac", "engine-runs"); } }
+
+        public DownloadEngine() : this(DefaultStateRoot) { }
         internal DownloadEngine(string root) : this(root, DownloadTuning.SearchWindowMilliseconds) { }
         internal DownloadEngine(string root, int cooldownMs) { stateRoot = Path.GetFullPath(root); sessionCooldownMs = cooldownMs; }
 
@@ -109,6 +111,9 @@ namespace PlaylistFlac
                 slotHeld = true;
                 pacing = SearchSessionPacing.Acquire(stateRoot, sessionCooldownMs, cancellation, EmitLog);
                 if (cancellation.IsCancellationRequested) return 130;
+                // Holding the lease means no other run is alive, so any other run folder is left over
+                // from a session that was killed before it could remove its sign-in file.
+                EngineRunCleanup.RemoveAbandonedRuns(stateRoot, EmitLog);
                 Directory.CreateDirectory(outputDir);
                 Directory.CreateDirectory(Path.GetDirectoryName(indexPath));
                 Directory.CreateDirectory(Path.GetDirectoryName(playlistPath));
@@ -134,6 +139,9 @@ namespace PlaylistFlac
                     if (disposed || cancellation.IsCancellationRequested) return 130;
                     if (!process.Start()) throw new IOException("The download engine could not start.");
                     active = process;
+                    // If the app is killed, Windows ends the engine with it instead of leaving it running.
+                    if (!ChildProcessJob.Shared.TryAssign(process))
+                        EmitLog("Windows could not enable automatic engine shutdown after an app crash. Use Stop before closing the app.");
                 }
                 process.StandardInput.Close();
                 EmitLog("Searching Soulseek for FLAC files. Tracks with no matching FLAC will be reported as unavailable.");
