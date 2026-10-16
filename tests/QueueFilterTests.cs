@@ -17,6 +17,7 @@ internal static class QueueFilterTests
             var list=Field<ListView>(form,"tracks");var search=Field<TextBox>(form,"queueSearch");var filter=Field<QueueStatusChoice>(form,"queueFilter");
             if(Convert.ToString(filter.SelectedItem)!="All songs")throw new Exception("The initial filter must have a visible All songs selection.");
             int total=list.Items.Count;
+            foreach(ListViewItem row in list.Items)if(row.Name!=IndexStore.Key((Track)row.Tag))throw new Exception("Prepared row identity differs from imported recording identity.");
             search.Text="Open Water";if(list.Items.Count!=2)throw new Exception("Same-title artists were hidden incorrectly.");
             search.Text="nothing matches";if(list.Items.Count!=0)throw new Exception("Search did not filter.");
             typeof(MainForm).GetMethod("RestoreStatus",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(form,new object[]{true});
@@ -56,6 +57,7 @@ internal static class QueueFilterTests
             var large=new Playlist {Name="Synthetic library",Source="synthetic"};
             for(int i=0;i<5000;i++)large.Tracks.Add(new Track {Title="Synthetic "+i,Artist="Artist "+i,Album="Album",DurationSeconds=100});
             typeof(MainForm).GetMethod("DisplayPlaylist",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(form,new object[]{large});
+            foreach(ListViewItem row in list.Items)if(row.Name!=IndexStore.Key((Track)row.Tag))throw new Exception("Reimport retained a stale row identity.");
             filter.SelectedItem="All songs";var timer=Stopwatch.StartNew();
             for(int i=0;i<10;i++){search.Text="Synthetic 4999";if(list.Items.Count!=1)throw new Exception("Large list search failed.");search.Clear();}
             if(list.Items.Count!=5000 || timer.ElapsedMilliseconds>10000)throw new Exception("Large list filtering lost rows or exceeded ten seconds for twenty changes.");

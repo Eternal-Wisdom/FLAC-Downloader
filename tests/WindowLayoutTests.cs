@@ -13,6 +13,7 @@ internal static class WindowLayoutTests
     {
         using(var form=new MainForm(true))
         {
+            if(!form.Text.EndsWith(typeof(MainForm).Assembly.GetName().Version.ToString(3)))throw new Exception("Window caption differs from assembly version.");
             form.ShowInTaskbar=false;form.Opacity=0;form.Show();form.LoadPreview();
             var tracks=Field<ListView>(form,"tracks");var title=Field<Label>(form,"playlistLabel");
             var source=Field<TextBox>(form,"source");
