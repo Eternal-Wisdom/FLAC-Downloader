@@ -70,6 +70,8 @@ namespace PlaylistFlac
         public string ClientId { get; set; }
         public string OutputDirectory { get; set; }
         public string LastCsv { get; set; }
+        public string LastImportedSource { get; set; }
+        public string LastImportedName { get; set; }
         public bool StrictMatch { get; set; }
         public int ParallelTracks { get; set; }
         public string QualityProfile { get; set; }
@@ -118,7 +120,7 @@ namespace PlaylistFlac
         }
     }
 
-    internal sealed class MainForm : Form
+    internal sealed partial class MainForm : Form
     {
         private static readonly Color Background = Color.FromArgb(17, 21, 26);
         private static readonly Color Surface = Color.FromArgb(25, 31, 38);
@@ -308,12 +310,16 @@ namespace PlaylistFlac
             tools.Items.Add(new ToolStripSeparator());
             var saved=tools.Items.Add("Review saved retries...");saved.Click+=delegate {ShowSavedRetries();};
             var missing=tools.Items.Add("Export unavailable songs as CSV...");missing.Click+=delegate {ExportMissingSongs();};
+            tools.Items.Add(new ToolStripSeparator());
+            var diagnostics=tools.Items.Add("Preview safe diagnostics...");diagnostics.Click+=delegate {ShowDiagnostics();};
+            var troubleshooting=tools.Items.Add("Troubleshooting guide");troubleshooting.Click+=delegate {OpenGuide("TROUBLESHOOTING.md");};
             tools.Opening+=delegate {quick.Enabled=full.Enabled=!busy;repair.Enabled=!busy && playlist!=null && playlist.Tracks.Count>0;saved.Enabled=!busy;missing.Enabled=!busy && !preview && playlist!=null;};
             libraryTools.Click+=delegate {tools.Show(libraryTools,new Point(0,libraryTools.Height));};
             libraryTools.ContextMenuStrip=tools;
             libraryTools.Disposed+=delegate {tools.Dispose();};
             verify.Visible=fix.Visible=waiting.Visible=activity.Visible=false;
-            start.Text="Download FLAC";retry.Text="Retry missing";browse.Text="Browse";open.Text="Open folder";import.Text="Import CSV";
+            start.Text="Download FLAC";retry.Text="Retry missing";browse.Text="Browse";open.Text="Open folder";import.Text="Import ▾";
+            import.AccessibleName="Import CSV or pasted songs";
             autoRetry.Text="Retry unavailable songs while open";autoRetry.Font=new Font("Segoe UI",9);
 
             emptyQueue=new Panel {BackColor=Surface};queue.Controls.Add(emptyQueue);
@@ -390,7 +396,7 @@ namespace PlaylistFlac
             load = ButtonAt(this, "Load link", 565, 180, 105, false); load.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             import = ButtonAt(this, "Import CSV", 680, 180, 120, false); import.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             load.Click += async delegate { await LoadLink(); };
-            import.Click += delegate { ImportCsv(); };
+            import.Click += delegate { ShowImportMenu(); };
             source.KeyDown += async delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter && !busy) { e.SuppressKeyPress = true; await LoadLink(); } };
 
             playlistLabel = LabelAt(this, "Your queue starts here", 29, 237, 590, 30, 16, Color.White, true);
@@ -470,6 +476,7 @@ namespace PlaylistFlac
                     "3. If the name is taken, choose another. Website/forum logins are separate.\r\n" +
                     "4. Disconnect SoulseekQt or Nicotine+ before using the same account here.\r\n" +
                     "5. Enter your credentials below, import a tracklist, and start when ready.\r\n\r\n" +
+                    "Some peers require users to share music. Configure sharing in SoulseekQt or Nicotine+ using only files you are entitled to share; this app does not configure shared folders.\r\n\r\n" +
                     "The full guide is included in docs/SOULSEEK-ACCOUNT.md. Never post your password or private settings in a bug report.",
                     "Soulseek account setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
@@ -549,13 +556,13 @@ namespace PlaylistFlac
             int parallel = DownloadTuning.NormalizeParallelTracks(s.ParallelTracks); parallel8.Checked = parallel == 8; parallel20.Checked = parallel == 20; parallel32.Checked = parallel == 32;
             loadedCsv = s.LastCsv;
             if (!String.IsNullOrEmpty(loadedCsv) && File.Exists(loadedCsv))
-                try { DisplayPlaylist(CsvPlaylist.Read(loadedCsv)); } catch (Exception ex) { Log("The previous tracklist could not be loaded: " + ex.Message); }
+                try { DisplayPlaylist(ImportedTracklistCache.Read(Path.Combine(AppState.StateDirectory,"imports"),loadedCsv,s.LastImportedSource,s.LastImportedName)); } catch (Exception ex) { Log("The previous tracklist could not be loaded: " + ex.Message); }
         }
         private void SaveSettings()
         {
             if(preview)return;
             if(!String.IsNullOrEmpty(password.Text))preservedPassword=null;
-            try { AppState.Save(new Preferences { Username = username.Text.Trim(), ClientId = SpotifyImporter.ClientIdForStorage(clientId.Text), OutputDirectory = destination.Text.Trim(), LastCsv = loadedCsv, StrictMatch = strict.Checked, ParallelTracks = SelectedParallelTracks, AutoRetryMissing=autoRetry.Checked, QualityProfile=Convert.ToString(quality.SelectedItem), RememberPassword = remember.Checked, EncryptedPassword = remember.Checked ? (String.IsNullOrEmpty(password.Text) && preservedPassword != null ? preservedPassword : AppState.Protect(password.Text)) : null }); }
+            try { AppState.Save(new Preferences { Username = username.Text.Trim(), ClientId = SpotifyImporter.ClientIdForStorage(clientId.Text), OutputDirectory = destination.Text.Trim(), LastCsv = loadedCsv, LastImportedSource = playlist==null ? null : playlist.Source, LastImportedName = playlist==null ? null : playlist.Name, StrictMatch = strict.Checked, ParallelTracks = SelectedParallelTracks, AutoRetryMissing=autoRetry.Checked, QualityProfile=Convert.ToString(quality.SelectedItem), RememberPassword = remember.Checked, EncryptedPassword = remember.Checked ? (String.IsNullOrEmpty(password.Text) && preservedPassword != null ? preservedPassword : AppState.Protect(password.Text)) : null }); }
             catch (Exception ex) { Log("Settings could not be saved: " + ex.Message); }
         }
         private void SetBusy(bool value)
@@ -605,7 +612,8 @@ namespace PlaylistFlac
             {
                 LabelAt(d, "One-time Spotify setup", 26, 23, 580, 35, 20, Color.White, true);
                 LabelAt(d, "1. Open the Spotify developer dashboard and create an app.\n\n2. Enable Web API and add this redirect URI exactly:\n\n\n3. Paste its Client ID into the main window, then Connect Spotify.\n   Sign in and approve playlist access in your browser.\n\nDevelopment apps require the app owner to have Premium. Spotify\ncurrently limits playlist contents to playlists you own or collaborate on.\n\nFor other playlists, import a CSV tracklist with artist and title columns.\nThe app uses Spotify only for metadata, never for audio.", 28, 80, 600, 326, 10, Muted, false);
-                var redirect = TextAt(d, 30, 163, 555, false); redirect.Text = "http://127.0.0.1:48723/callback"; redirect.ReadOnly = true;
+                var redirect = TextAt(d, 30, 163, 430, false); redirect.Text = SpotifyImporter.RedirectUri; redirect.ReadOnly = true; redirect.AccessibleName="Spotify redirect URI";
+                var copyRedirect=ButtonAt(d,"Copy URI",472,161,112,false);copyRedirect.Click+=delegate {CopyText(SpotifyImporter.RedirectUri);};
                 var dashboard = ButtonAt(d, "Open developer dashboard", 28, 419, 270, true); dashboard.Click += delegate { Process.Start(new ProcessStartInfo("https://developer.spotify.com/dashboard") { UseShellExecute = true }); };
                 var docs = ButtonAt(d, "Read guide", 310, 419, 120, false); docs.Click += delegate { OpenReadme(); };
                 var close = ButtonAt(d, "Close", 444, 419, 140, false); close.Click += delegate { d.Close(); }; d.ShowDialog(this);
@@ -627,10 +635,11 @@ namespace PlaylistFlac
         {
             if (busy) return;
             if (String.IsNullOrWhiteSpace(source.Text)) { ShowError("Paste a Spotify playlist or album link first, or choose Import CSV."); return; }
-            if (!spotify.IsConnected) { await ConnectSpotify(); if (!spotify.IsConnected) return; }
+            bool publicAlbum=SpotifyImporter.IsAlbumLink(source.Text) && !spotify.IsConnected;
+            if (!spotify.IsConnected && !publicAlbum) { await ConnectSpotify(); if (!spotify.IsConnected) return; }
             operation = new CancellationTokenSource(); SetBusy(true); status.Text = "Reading tracklist...";
-            try { var result = await spotify.LoadAsync(source.Text.Trim(), operation.Token); DisplayPlaylist(result); loadedCsv = null; SaveSettings(); }
-            catch (OperationCanceledException) { status.Text = "Import cancelled"; }
+            try { var result = await spotify.LoadAsync(source.Text.Trim(), operation.Token); DisplayPlaylist(result); loadedCsv = null; if(publicAlbum){SaveImportedTracklist(result);Log("Imported public Spotify album metadata without Web API credentials. Review the track count; public pages may change. Audio still comes from Soulseek.");} SaveSettings(); }
+            catch (OperationCanceledException) { status.Text = operation.IsCancellationRequested ? "Import cancelled" : "Tracklist import timed out; try again"; Log(status.Text); }
             catch (Exception ex) { ShowError(ex.Message + "\r\n\r\nYou can also import this tracklist as a CSV."); }
             finally { SetBusy(false); }
         }

@@ -325,7 +325,7 @@ namespace PlaylistFlac
         public async Task<Playlist> LoadAsync(string url, CancellationToken cancellationToken)
         {
             ThrowIfDisposed();
-            if (IsAlbumLink(url)) return await LoadAlbumAsync(url, cancellationToken).ConfigureAwait(false);
+            if (IsAlbumLink(url)) return IsConnected ? await LoadAlbumAsync(url, cancellationToken).ConfigureAwait(false) : await PublicSpotifyAlbum.LoadAsync(url,http,cancellationToken).ConfigureAwait(false);
             string id = ParsePlaylistId(url);
             if (!IsConnected) throw new InvalidOperationException("Connect to Spotify before importing a playlist, or import a CSV file.");
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token))
@@ -347,7 +347,7 @@ namespace PlaylistFlac
             }
         }
 
-        private static bool IsAlbumLink(string input)
+        internal static bool IsAlbumLink(string input)
         {
             input = (input ?? "").Trim();
             Uri uri;
