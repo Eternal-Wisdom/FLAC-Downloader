@@ -1,5 +1,7 @@
 # Open-source feature investigation
 
+> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+
 Made using AI (OpenAI Codex). Reviewed 2026-10-13; local version 1.17.0. This is a focused review, not an exhaustive analysis of all open-source software. Features are independently implemented; upstream code and REA are not bundled.
 
 REA 6.4.0 inspected exact copies of Motrix sort.ts and task-column-values.ts from commit 99a40ab3dd91133056ac2cc08e5bbd90ce3afb9e. Two TypeScript files parsed without failures; the focused structural graph reported complete coverage. Direct source review corroborated sortable columns, numeric values, stable ordering and unknown values. We implemented queue sorting by source position, title, artist, numeric duration and lifecycle status. Sorting changes displayed rows only, preserving the imported playlist and download sequence.
