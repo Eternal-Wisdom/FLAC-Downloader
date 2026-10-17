@@ -2,7 +2,7 @@ $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $build=Join-Path $root 'build'
 $dist=Join-Path $root 'dist'
-$version='1.17.6'
+$version='1.18.0'
 if(-not (Test-Path -LiteralPath (Join-Path $build 'FLAC-Downloader.exe'))){throw 'Build the app first.'}
 $receiptPath=Join-Path $build 'tested-build.json'
 if(-not (Test-Path -LiteralPath $receiptPath)){throw 'Run scripts/Test.ps1 successfully before packaging.'}
@@ -19,13 +19,13 @@ Copy-Item -LiteralPath (Join-Path $build 'engine') -Destination $app -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $app -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $app
 Copy-Item -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md'),(Join-Path $root 'AI-DISCLOSURE.md') -Destination $app
-$guide="FLAC-Downloader $version`r`nMADE USING AI - Created with extensive OpenAI Codex assistance.`r`n`r`nExtract this entire folder and open FLAC-Downloader.exe.`r`nEnter your own Soulseek account, import a CSV or configure Spotify, choose where music goes, then Download FLAC.`r`nNew to Soulseek? Read docs/SOULSEEK-ACCOUNT.md to create a network account.`r`nSee docs/QUICKSTART.md for help. Full source and release instructions are in the accompanying source ZIP.`r`nPrivate settings are created in state/ on first use; no credentials or music are bundled.`r`n"
+$guide="FLAC-Downloader $version`r`nMADE USING AI - Created with extensive OpenAI Codex assistance.`r`n`r`nExtract this entire folder and open FLAC-Downloader.exe.`r`nEnter your own Soulseek account, load a public Spotify album or import CSV/pasted songs, choose where music goes, then Download FLAC. Public albums do not need developer setup; playlist links use optional Spotify setup.`r`nNew to Soulseek? Read docs/SOULSEEK-ACCOUNT.md to create a network account.`r`nSee docs/QUICKSTART.md for help. Full source and release instructions are in the accompanying source ZIP.`r`nPrivate settings are created in state/ on first use; no credentials or music are bundled.`r`n"
 [IO.File]::WriteAllText((Join-Path $app 'START HERE.txt'),$guide)
 $portable=Join-Path $dist "flac-downloader-$version-windows-x64.zip"
 Compress-Archive -LiteralPath $app -DestinationPath $portable -Force
 $source=Join-Path $stage 'flac-downloader-source'
 New-Item -ItemType Directory -Force -Path $source | Out-Null
-foreach($name in @('src','tests','scripts','docs','examples','third-party','.github','README.md','LICENSE','THIRD-PARTY-NOTICES.md','CONTRIBUTING.md','SECURITY.md','CHANGELOG.md','AI-DISCLOSURE.md','.gitignore','.gitattributes')){Copy-Item -LiteralPath (Join-Path $root $name) -Destination $source -Recurse}
+foreach($name in @('src','tests','scripts','docs','examples','third-party','.github','README.md','LICENSE','THIRD-PARTY-NOTICES.md','CONTRIBUTING.md','SECURITY.md','CHANGELOG.md','AI-DISCLOSURE.md','.gitignore','.gitattributes','.editorconfig')){Copy-Item -LiteralPath (Join-Path $root $name) -Destination $source -Recurse}
 $sourceZip=Join-Path $dist "flac-downloader-$version-source.zip"
 # .NET ZIP includes dotfiles, including GitHub workflows and ignore rules.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
