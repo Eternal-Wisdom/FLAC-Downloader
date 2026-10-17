@@ -98,18 +98,25 @@ namespace PlaylistFlac
         public static void Write(string path, Playlist playlist)
         {
             if (playlist == null) throw new ArgumentNullException("playlist");
-            using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+            string destination=Path.GetFullPath(path);
+            string temporary=destination+"."+Guid.NewGuid().ToString("N")+".tmp";
+            try {
+            var serializer=new JavaScriptSerializer();
+            using (var writer = new StreamWriter(new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None),new UTF8Encoding(false)))
             {
                 writer.WriteLine("title,artist,album,length,isrc,spotify_id,artist_names_json,cover_url,disc_number,track_number");
                 foreach (var track in playlist.Tracks)
                 {
+                    if(track==null)throw new ArgumentException("Tracklist contains an empty track.","playlist");
                     // Unknown durations are blank, so a downloader does not reject candidates as zero-length.
                     string length = track.DurationSeconds > 0 && !Double.IsNaN(track.DurationSeconds) && !Double.IsInfinity(track.DurationSeconds)
                         ? track.DurationSeconds.ToString("0.###", CultureInfo.InvariantCulture) : "";
-                    string artists = new JavaScriptSerializer().Serialize(track.Artists ?? new [] { track.Artist ?? "" });
+                    string artists = serializer.Serialize(track.Artists ?? new [] { track.Artist ?? "" });
                     writer.WriteLine(Quote(track.Title) + "," + Quote(track.Artist) + "," + Quote(track.Album) + "," + length + "," + Quote(track.Isrc) + "," + Quote(track.SpotifyId) + "," + Quote(artists) + "," + Quote(NormalizeCoverUrl(track.CoverUrl))+","+track.DiscNumber.ToString(CultureInfo.InvariantCulture)+","+track.TrackNumber.ToString(CultureInfo.InvariantCulture));
                 }
             }
+            if(File.Exists(destination))File.Replace(temporary,destination,null);else File.Move(temporary,destination);
+            } finally {if(File.Exists(temporary))File.Delete(temporary);}
         }
 
         // Importing a URL only preserves metadata. The artwork downloader separately restricts fetch hosts.

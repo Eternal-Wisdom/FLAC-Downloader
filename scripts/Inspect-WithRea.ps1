@@ -26,9 +26,15 @@ $allowed=@('System.Windows.Forms','mscorlib','System.Drawing','System.Net.Http',
 $references=@($artifact.references | ForEach-Object {$_.name})
 foreach($name in $references){if($allowed -notcontains $name){throw ('Review unexpected assembly dependency: '+$name)}}
 $imports=@($native.pinvoke_imports)
-if($imports.Count -ne 1 -or $imports[0].import_scope_name -ne 'user32.dll' -or $imports[0].import_name -ne 'SendMessage' -or $imports[0].char_set -ne 'unicode' -or $imports[0].call_convention -ne 'winapi'){throw 'Review changed native import declarations.'}
+$expected=@('user32.dll:SendMessage','kernel32.dll:CreateJobObject','kernel32.dll:SetInformationJobObject','kernel32.dll:AssignProcessToJobObject','kernel32.dll:CloseHandle')
+$observed=@($imports | ForEach-Object {$_.import_scope_name+':'+$_.import_name})
+if($imports.Count -ne $expected.Count -or @(Compare-Object $expected $observed).Count -ne 0){throw 'Review changed native import declarations.'}
+foreach($import in $imports){
+    if($import.call_convention -ne 'winapi'){throw 'Review changed native calling convention.'}
+    if($import.import_name -in @('SendMessage','CreateJobObject') -and $import.char_set -ne 'unicode'){throw 'Review changed native text encoding.'}
+}
 # Public-safe summary: never copy raw REA evidence, which includes local paths.
-$report=@{assembly=$artifact.assembly.name;version=$artifact.assembly.version;sha256=$artifact.artifact.sha256;architecture=$artifact.classification.managed_architecture;references=$references;nativeImport='user32.dll:SendMessage (Unicode, WinAPI)';coverage='complete metadata and native declarations';limits='Static declarations only; not a runtime, privacy, throughput, or full method audit.'}
+$report=@{assembly=$artifact.assembly.name;version=$artifact.assembly.version;sha256=$artifact.artifact.sha256;architecture=$artifact.classification.managed_architecture;references=$references;nativeImports=$observed;coverage='complete metadata and native declarations';limits='Static declarations only; not a runtime, privacy, throughput, or full method audit.'}
 $parent=Split-Path -Parent ([IO.Path]::GetFullPath($ReportPath))
 New-Item -ItemType Directory -Force -Path $parent | Out-Null
 $report | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $ReportPath -Encoding UTF8

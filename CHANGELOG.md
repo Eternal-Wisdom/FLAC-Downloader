@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.17.6
+
+- Remove leftover temporary sign-in files at startup or before the next download, only while holding the shared session lease. Skip linked folders/files, preserve unrelated files and saved cooldowns, and retry locked files later.
+- Add Windows kill-on-close job containment for the download engine. Log a warning if Windows declines containment. Assignment happens just after launch, so this is best effort, not an absolute guarantee against orphan processes.
+- Test cleanup with synthetic credentials, active leases, locked files, unrelated files, a mock engine, and a real Windows child process. Fresh live CSV/Soulseek verification passed; Spotify API import remains untested without a Web API Client ID.
+
+## 1.17.5
+
+- Prepare queue sort values once per refresh instead of repeatedly accessing controls and parsing positions during comparisons. Preserve stable ties and keep unknown/non-finite durations last in either direction.
+- Write CSV exports and engine tracklists to a temporary sibling before replacing the destination. Failed writes preserve the existing tracklist and clean up temporary files. Reuse one artist-list serializer per export.
+
+## 1.17.4
+
+- Avoid repainting unchanged activity search results, preserving selected text as unrelated messages arrive. Reuse parsed snapshot lines while changing the search.
+- Remove temporary packaging directories after success or failure, preventing full app copies from accumulating between builds.
+
+## 1.17.3
+
+- Search the activity log with case-insensitive Unicode matching. Ctrl+F focuses search and Escape clears it. Matching messages continue updating while Follow is enabled; searching while paused preserves the reading snapshot.
+
+## 1.17.2
+
+- Export selected visible songs as a reusable CSV from the queue menu. Preserve display order, metadata and distinct same-title artists without exporting local library paths or account settings.
+
+## 1.17.1
+
+- Make song column headers clickable, fixing the sorting control introduced in 1.17.0.
+- Add Select all visible songs (Ctrl+A), Clear selection, and Copy selected songs and artists (Ctrl+C). Filtered-out songs are excluded; handle a busy clipboard without crashing.
+
+## 1.17.0
+
+- Sort displayed songs by source position, title, artist, duration or status. Reverse direction with another click; retain stable ties and put unknown durations last. Playlist/download order is unchanged.
+- Search saved retries and switch between All retries, Scheduled, Paused and Unreadable views. Hidden entries remain; actions apply to selected visible editable entries.
+- Keep retry filter controls visible at smaller sizes and derive the window caption from the assembly version.
+
+## 1.16.2
+
+- Prepare each imported queue row's recording key once and reuse it for transfer status/source updates, reducing temporary allocations during repeated progress callbacks. Reimport creates fresh row identities.
+
 ## 1.16.1
 
 - Avoid repainting song status, rebuilding summaries, or rescanning status filters when repeated transfer events do not change song status. Keep source telemetry observation active.

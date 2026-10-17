@@ -26,6 +26,15 @@ namespace PlaylistFlac
                 catch(ArgumentException ex) {Equal(true,ex.Message.Contains("Soloist") && !ex.Message.Contains("synthetic_fixture"),"Soloist rejection explains credential type without echoing secret");}
             }
             TestCsv();
+            string atomicRoot=Path.Combine(Path.GetTempPath(),"AtomicCsv-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(atomicRoot);
+            try {
+                string file=Path.Combine(atomicRoot,"playlist.csv");File.WriteAllText(file,"original tracklist");
+                var data=new Playlist();data.Tracks.Add(new Track{Title="日本語",Artist="Artist"});data.Tracks.Add(null);
+                try{CsvPlaylist.Write(file,data);throw new Exception("Invalid export succeeded");}catch(ArgumentException){}
+                Equal("original tracklist",File.ReadAllText(file),"failed CSV export preserves destination");
+                Equal(1,Directory.GetFiles(atomicRoot).Length,"failed export removes temporary file");
+                data.Tracks.RemoveAt(1);CsvPlaylist.Write(file,data);Equal("日本語",CsvPlaylist.Read(file).Tracks[0].Title,"atomic replacement reimports correctly");
+            }finally{Directory.Delete(atomicRoot,true);}
             TestUrls();
             TestSpotifyPages();
             TestCallbackValidation();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,11 +26,23 @@ internal static class RetryReviewTests
                 IntPtr formHandle=form.Handle;var view=form.Controls.OfType<ListView>().Single();IntPtr viewHandle=view.Handle;
                 Check(view.Items.Count==3,"valid, syntactically corrupt, and structurally damaged queues shown together");
                 Check(view.Items.Cast<ListViewItem>().Count(i=>i.Text=="Unreadable saved list")==2,"the whole damaged queue is blocked instead of exposing a partial editable list");
+                var search=(TextBox)typeof(RetryReview).GetField("search",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(form);
+                var filterButton=(Button)typeof(RetryReview).GetField("filter",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(form);
+                foreach(int width in new[]{980,650,980}){form.ClientSize=new System.Drawing.Size(width,400);Application.DoEvents();Check(filterButton.Left>=0 && filterButton.Right<=filterButton.Parent.ClientSize.Width && search.Right<filterButton.Left,"retry filter remains visible after resize");}
+                var filter=typeof(RetryReview).GetMethod("SetRetryFilter",BindingFlags.NonPublic|BindingFlags.Instance);
+                search.Text="日本語";Check(view.Items.Count==1,"Unicode search limits visible retries");
+                search.Text="no match";Check(view.Items.Count==0,"empty search preserves underlying entries");search.Clear();
+                filter.Invoke(form,new object[]{"Unreadable"});Check(view.Items.Count==2,"unreadable filter excludes editable entries");
+                filter.Invoke(form,new object[]{"Scheduled"});Check(view.Items.Count==1,"scheduled filter excludes corrupt lists");
+                filter.Invoke(form,new object[]{"All retries"});Check(view.Items.Count==3,"filter reset restores all entries");
                 var row=view.Items.Cast<ListViewItem>().Single(i=>i.Text==song.Title);row.Selected=true;
                 Check(view.SelectedItems.Count==1,"selection retained without starting work");
                 var change=typeof(RetryReview).GetMethod("Change",BindingFlags.NonPublic|BindingFlags.Instance);
                 change.Invoke(form,new object[]{0});Check(serializer.Deserialize<List<RetryEntry>>(File.ReadAllText(path))[0].Paused,"pause saved");
-                change.Invoke(form,new object[]{1});var resumed=serializer.Deserialize<List<RetryEntry>>(File.ReadAllText(path))[0];Check(!resumed.Paused && resumed.NextUtc>DateTime.UtcNow.AddMinutes(14),"resume waits fifteen minutes");
+                filter.Invoke(form,new object[]{"Paused"});Check(view.Items.Count==1,"pause moves entry to paused view");
+                change.Invoke(form,new object[]{1});Check(view.Items.Count==0,"resume leaves paused filter");
+                filter.Invoke(form,new object[]{"All retries"});row.Selected=true;
+                var resumed=serializer.Deserialize<List<RetryEntry>>(File.ReadAllText(path))[0];Check(!resumed.Paused && resumed.NextUtc>DateTime.UtcNow.AddMinutes(14),"resume waits fifteen minutes");
                 change.Invoke(form,new object[]{2});Check(serializer.Deserialize<List<RetryEntry>>(File.ReadAllText(path)).Count==0,"remove saved");
                 Check(File.ReadAllText(broken)=="{broken","corrupt queue preserved");
                 Check(File.ReadAllText(damaged)==damagedJson,"structurally damaged queue preserved while another queue is edited");

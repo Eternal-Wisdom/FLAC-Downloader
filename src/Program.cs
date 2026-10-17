@@ -42,6 +42,8 @@ namespace PlaylistFlac
                     MessageBox.Show("The app cannot save its settings here. Extract the entire app folder to a writable location, such as Downloads, and open it there.", "FLAC-Downloader", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     Environment.ExitCode = 1; return;
                 }
+                // Remove sign-in files left by an earlier session that was killed mid-download.
+                EngineRunCleanup.RemoveAbandonedRunsIfIdle(DownloadEngine.DefaultStateRoot, null);
             }
             using (var form = new MainForm(args.Length>1 && args[0]=="--render-preview"))
             {
@@ -148,6 +150,8 @@ namespace PlaylistFlac
         private readonly List<ListViewItem> allRows=new List<ListViewItem>();
         private bool filterDirty;
         private bool summaryDirty;
+        private int sortColumn=-1;
+        private bool sortDescending;
         private Panel spotifySetup,settingsContent,emptyQueue;
         private Button spotifySetupToggle,libraryTools;
         private Label queueHint;
@@ -172,7 +176,7 @@ namespace PlaylistFlac
         {
             preview=previewMode;
             using(var stream=typeof(MainForm).Assembly.GetManifestResourceStream("PlaylistFlac.app.ico")) {if(stream!=null)Icon=new Icon(stream);}
-            Text = "FLAC-Downloader 1.16.0"; BackColor = Background; ForeColor = Color.White;
+            Text = "FLAC-Downloader "+typeof(MainForm).Assembly.GetName().Version.ToString(3); BackColor = Background; ForeColor = Color.White;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(1200, 838);
             MinimumSize = new Size(800, 600); StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -392,7 +396,7 @@ namespace PlaylistFlac
             playlistLabel = LabelAt(this, "Your queue starts here", 29, 237, 590, 30, 16, Color.White, true);
             playlistLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             countLabel = LabelAt(this, "Load a playlist or album link, or import a tracklist.", 30, 275, 770, 28, 10, Muted, false);
-            tracks = new ListView { Location = new Point(30, 308), Size = new Size(770, 270), View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = false, BackColor = Surface, ForeColor = Color.White, BorderStyle = BorderStyle.None, OwnerDraw = true, HeaderStyle = ColumnHeaderStyle.Nonclickable, Font = new Font("Segoe UI", 10), Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+            tracks = new ListView { Location = new Point(30, 308), Size = new Size(770, 270), View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = false, BackColor = Surface, ForeColor = Color.White, BorderStyle = BorderStyle.None, OwnerDraw = true, HeaderStyle = ColumnHeaderStyle.Clickable, Font = new Font("Segoe UI", 10), Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
             tracks.Columns.Add("#", 42); tracks.Columns.Add("TRACK", 275); tracks.Columns.Add("ARTIST", 220); tracks.Columns.Add("TIME", 65); tracks.Columns.Add("STATUS", 140);
             tracks.DrawColumnHeader += delegate(object sender, DrawListViewColumnHeaderEventArgs e) { using (var brush = new SolidBrush(Inset)) using (var font = new Font("Segoe UI", 8, FontStyle.Bold)) { e.Graphics.FillRectangle(brush, e.Bounds); TextRenderer.DrawText(e.Graphics, e.Header.Text, font, e.Bounds, Muted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis); } };
             tracks.DrawItem += delegate(object sender, DrawListViewItemEventArgs e) { if (tracks.View != View.Details) e.DrawDefault = true; };
@@ -406,11 +410,17 @@ namespace PlaylistFlac
                 var selected=new HashSet<string>(tracks.SelectedItems.Cast<ListViewItem>().Select(i=>IndexStore.Key((Track)i.Tag)));
                 if(selected.Count>0)await Download(false,selected);
             };
-            var copyTitle=trackMenu.Items.Add("Copy song and artist");
-            copyTitle.Click+=delegate {if(tracks.SelectedItems.Count>0)Clipboard.SetText(String.Join(Environment.NewLine,tracks.SelectedItems.Cast<ListViewItem>().Select(i=>((Track)i.Tag).Title+" — "+((Track)i.Tag).Artist)));};
+            var copyTitle=trackMenu.Items.Add("Copy selected songs and artists · Ctrl+C");
+            copyTitle.Click+=delegate {CopySelectedTracks();};
+            var selectVisible=trackMenu.Items.Add("Select all visible songs · Ctrl+A");selectVisible.Click+=delegate{SelectVisibleTracks(true);};
+            var clearSelection=trackMenu.Items.Add("Clear selection");clearSelection.Click+=delegate{SelectVisibleTracks(false);};
+            trackMenu.Opening+=delegate{selectVisible.Enabled=tracks.Items.Count>0;clearSelection.Enabled=tracks.SelectedItems.Count>0;};
             trackMenu.Opening+=delegate {downloadSelected.Enabled=!busy && tracks.SelectedItems.Count>0;copyTitle.Enabled=tracks.SelectedItems.Count>0;};
             tracks.ContextMenuStrip=trackMenu;
             var exportMissing=trackMenu.Items.Add("Export missing songs as CSV...");
+            var exportSelected=trackMenu.Items.Add("Export selected songs as CSV...");
+            exportSelected.Click+=delegate {ExportSelectedSongs();};
+            trackMenu.Opening+=delegate {exportSelected.Enabled=tracks.SelectedItems.Count>0;};
             exportMissing.Click+=delegate {ExportMissingSongs();};
             trackMenu.Opening+=delegate {exportMissing.Enabled=!busy && !preview && playlist!=null;};
             trackMenu.Items.Add(new ToolStripSeparator());
@@ -432,7 +442,8 @@ namespace PlaylistFlac
             detailsItem.Click+=delegate {ShowTrackDetails();};
             trackMenu.Opening+=delegate {detailsItem.Enabled=tracks.SelectedItems.Count==1;};
             tracks.DoubleClick+=delegate {ShowTrackDetails();};
-            tracks.KeyDown+=delegate(object sender,KeyEventArgs e) {if(e.KeyCode==Keys.Enter){e.SuppressKeyPress=true;ShowTrackDetails();}};
+            tracks.ColumnClick+=delegate(object sender,ColumnClickEventArgs e){SortQueue(e.Column);};
+            tracks.KeyDown+=delegate(object sender,KeyEventArgs e) {if(e.Control && e.KeyCode==Keys.A){e.SuppressKeyPress=true;SelectVisibleTracks(true);}else if(e.Control && e.KeyCode==Keys.C){e.SuppressKeyPress=true;CopySelectedTracks();}else if(e.KeyCode==Keys.Enter){e.SuppressKeyPress=true;ShowTrackDetails();}};
             AllowDrop=true;
             DragEnter+=delegate(object sender,DragEventArgs e) {if(!busy && (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.UnicodeText)))e.Effect=DragDropEffects.Copy;};
             DragDrop+=delegate(object sender,DragEventArgs e) {
@@ -641,7 +652,7 @@ namespace PlaylistFlac
             foreach (var group in recordingGroups.Groups)
             {
                 Track t=group.Representative;
-                var row = new ListViewItem((++i).ToString("00")); row.SubItems.Add(t.Title); row.SubItems.Add(t.Artist);
+                var row = new ListViewItem((++i).ToString("00")); row.Name=IndexStore.Key(t); row.SubItems.Add(t.Title); row.SubItems.Add(t.Artist);
                 row.ToolTipText=t.Title+Environment.NewLine+t.Artist+(String.IsNullOrEmpty(t.Album) ? "" : Environment.NewLine+t.Album);
                 int seconds = (int)Math.Max(0, t.DurationSeconds); row.SubItems.Add(seconds > 0 ? (seconds / 60).ToString() + ":" + (seconds % 60).ToString("00") : "--"); row.SubItems.Add("Ready"); row.Tag = t; allRows.Add(row); tracks.Items.Add(row);
                 foreach(string key in group.Tracks.Select(IndexStore.Key).Distinct()) AddRow(rowsByKey,key,row);
@@ -742,14 +753,15 @@ namespace PlaylistFlac
                 else if(next=="None" || next=="0" || next.Length==0) return;
                 foreach (ListViewItem row in affected)
                 {
-                    string key=IndexStore.Key((Track)row.Tag);
+                    // The imported row owns a stable recording identity until reimport.
+                    string key=row.Name;
                     TrackDetails details;if(!sourceDetails.TryGetValue(key,out details)){details=new TrackDetails();sourceDetails.Add(key,details);}details.Observe(update);
                     if(next=="Failed")failureReasons[key]=update.Status;
                     if(progressState.Set(key,next)){changed=true;row.SubItems[4].Text=progressState.Status(key);}
                 }
                 // Text searches do not depend on status. Only status filters need
                 // another membership scan when a transfer reports progress.
-                if(changed && Convert.ToString(queueFilter.SelectedItem)!="All songs")filterDirty=true;
+                if(changed && (Convert.ToString(queueFilter.SelectedItem)!="All songs" || sortColumn==4))filterDirty=true;
                 if(changed) {
                     if(next=="Downloaded" || next=="Failed")UpdateSummary();
                     else summaryDirty=true;
@@ -757,11 +769,22 @@ namespace PlaylistFlac
                 status.Text=next=="Failed" ? "A track is unavailable; continuing" : next=="Downloaded" ? "Downloaded "+progressState.Completed+" of "+progressState.Total : next;
             }
         }
+        private void SelectVisibleTracks(bool selected){tracks.BeginUpdate();try{foreach(ListViewItem row in tracks.Items)row.Selected=selected;}finally{tracks.EndUpdate();}}
+        private string SelectedTrackText(){return String.Join(Environment.NewLine,tracks.SelectedItems.Cast<ListViewItem>().Select(i=>((Track)i.Tag).Title+" — "+((Track)i.Tag).Artist));}
+        private void CopySelectedTracks(){string text=SelectedTrackText();if(text.Length==0)return;try{Clipboard.SetText(text);}catch(System.Runtime.InteropServices.ExternalException){ShowError("The clipboard is busy. Try copying again.");}}
+        private void SortQueue(int column)
+        {
+            if(column<0 || column>=tracks.Columns.Count)return;
+            sortDescending=sortColumn==column && !sortDescending;sortColumn=column;
+            string[] names={"#","TRACK","ARTIST","TIME","STATUS"};
+            for(int i=0;i<names.Length;i++)tracks.Columns[i].Text=names[i]+(i==column?(sortDescending?" ↓":" ↑"):"");
+            ApplyQueueFilter();
+        }
         private void ApplyQueueFilter()
         {
             filterDirty=false;if(queueSearch==null)return;
             string query=(queueSearch.Text ?? "").Trim();string filter=Convert.ToString(queueFilter.SelectedItem);
-            var visible=allRows.Where(r=>QueueFilter.MatchesPrepared((Track)r.Tag,r.SubItems[4].Text,query,filter)).ToList();
+            var visible=QueueSort.Apply(allRows.Where(r=>QueueFilter.MatchesPrepared((Track)r.Tag,r.SubItems[4].Text,query,filter)),sortColumn,sortDescending);
             visibleCount.Text=visible.Count+" / "+allRows.Count;
             if(tracks.Items.Cast<ListViewItem>().SequenceEqual(visible))return;
             var selected=new HashSet<ListViewItem>(tracks.SelectedItems.Cast<ListViewItem>());
@@ -818,6 +841,19 @@ namespace PlaylistFlac
                     if(dialog.ShowDialog(this)==DialogResult.OK){CsvPlaylist.Write(dialog.FileName,missing);status.Text="Exported "+missing.Tracks.Count+" missing songs";}
             } catch(Exception ex){ShowError("Missing songs could not be exported: "+ex.Message);}
         }
+        private Playlist SelectedTracklist()
+        {
+            return new Playlist {Name="Selected songs",Tracks=tracks.SelectedItems.Cast<ListViewItem>().Select(r=>(Track)r.Tag).ToList()};
+        }
+        private void ExportSelectedSongs()
+        {
+            var selected=SelectedTracklist();
+            if(selected.Tracks.Count==0)return;
+            try {
+                using(var dialog=new SaveFileDialog {Filter="CSV tracklists (*.csv)|*.csv",FileName="selected-songs.csv",Title="Export selected songs (contains your song list)",OverwritePrompt=true})
+                    if(dialog.ShowDialog(this)==DialogResult.OK){CsvPlaylist.Write(dialog.FileName,selected);status.Text="Exported "+selected.Tracks.Count+" selected songs";}
+            } catch(Exception ex){ShowError("Selected songs could not be exported: "+ex.Message);}
+        }
         private static void AddRow(Dictionary<string,List<ListViewItem>> map,string key,ListViewItem row)
         { List<ListViewItem> group;if(!map.TryGetValue(key,out group)){group=new List<ListViewItem>();map.Add(key,group);}group.Add(row); }
         private void SelectedFileAction(bool remove)
@@ -860,9 +896,9 @@ namespace PlaylistFlac
             if(progressState.Review>0)extra+=" · "+progressState.Review+" need review";
             if(playlist.SkippedTracks>0)extra+=" · "+playlist.SkippedTracks+" incomplete entries skipped";
             if(waitingRetries>0)extra+=" · "+waitingRetries+" saved retries";
-            uiTips.SetToolTip(countLabel,extra);uiTips.SetToolTip(queueHint,extra+"\r\nDouble-click for details; right-click for file actions.");
+            uiTips.SetToolTip(countLabel,extra);uiTips.SetToolTip(queueHint,extra+"\r\nClick column headings to sort the displayed queue; # restores source order. Double-click for details; right-click for file actions.");
             int duplicates=playlist.Tracks.Count-progressState.Total;
-            queueHint.Text=progressState.Review>0 ? progressState.Review+" need review · Right-click for song actions" : duplicates>0 ? duplicates+" duplicate entries skipped · Right-click for song actions" : "Double-click for details · Right-click for file actions";
+            queueHint.Text=progressState.Review>0 ? progressState.Review+" need review · Right-click for song actions" : duplicates>0 ? duplicates+" duplicate entries skipped · Right-click for song actions" : "Click headers to sort · Double-click for details · Right-click for actions";
             progress.Style=ProgressBarStyle.Continuous;progress.Maximum=Math.Max(1,progressState.Total);progress.Value=Math.Min(progress.Maximum,progressState.Completed);
         }
         internal Task ResumeDownload() { return Download(false); }
