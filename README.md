@@ -4,6 +4,8 @@
 
 A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify playlist, album, or CSV tracklist.
 
+**Current version: 1.18.0.** Start with the [quick start](docs/QUICKSTART.md), [interface guide](docs/UI-GUIDE.md), or [complete documentation index](docs/README.md).
+
 ![FLAC-Downloader interface](docs/images/app.png)
 
 ## Download and use
@@ -11,14 +13,16 @@ A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify
 Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases/latest) from the [Releases page](https://github.com/Eternal-Wisdom/FLAC-Downloader/releases), extract the entire folder, and open **FLAC-Downloader.exe**. Windows 10/11 x64 and .NET Framework 4.8 are required. The executable is currently unsigned.
 
 1. Enter your own Soulseek account. New to Soulseek? Follow the [account setup guide](docs/SOULSEEK-ACCOUNT.md). If another Soulseek client is using it, disconnect that client or use a separate account.
-2. Import a CSV, or configure your own Spotify developer Client ID and connect to load a playlist or album link.
+2. Paste a public Spotify album link and choose **Load link** (no developer setup), or use **Import** for a CSV or pasted songs. Spotify playlist links use the optional Web API connection.
 3. Choose a destination and quality/speed preference, then select **Download FLAC**.
+
+Public album import reads Spotify's public page metadata. Review the imported track count: regional availability and page formats can change, and empty, prerelease or very large public tracklists may need CSV instead. Album downloads are matched per recording; importing an album does not guarantee one peer or one master.
 
 Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, correctness, and speed depend on those peers. This app does not convert lossy files to FLAC or guarantee that a FLAC originated from a lossless source. Use it for music you are entitled to download and share. This project is not affiliated with Spotify, Soulseek, Nicotine+, or Sockseek.
 
 ## Features
 
-- Playlist and album links, CSV import, Unicode search alternatives, and selected-song downloads.
+- Public album links without developer credentials, optional authenticated playlist/album links, CSV and pasted-song import, Unicode search alternatives, and selected-song downloads.
 - FLAC-only filtering; Fast FLAC, Balanced, and higher-resolution preference profiles.
 - 8, 20, or 32 concurrent jobs. Jobs include searching and queued work, not just active transfers.
 - Conservative duplicate recording detection and cross-collection reuse.
@@ -28,10 +32,11 @@ Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, 
 - Search by song, artist, or album; filter the queue by status, with live source details.
 - Repair previews, imported-album availability, and optional full audio verification using official FLAC tools.
 - Resizable dark interface, status colors, action icons, and a live Activity window with a follow/pause control.
+- Destination preflight checks, plain-language failure explanations and previewable privacy-safe diagnostics.
 
 Formerly named Playlist FLAC. Existing settings and library metadata remain compatible.
 
-Version 1.16.0 introduces a clearer three-step layout, more room for songs, grouped Library tools, consistent dark menus, and collapsible optional Spotify setup. See the [research decisions](docs/RESEARCH-1.15.3.md), [changelog](CHANGELOG.md), and [validation results and limits](docs/VALIDATION.md).
+Version 1.18.0 adds public album import, pasted tracklists, safer destination checks and allowlisted diagnostics. See the [improvement review](docs/REVIEW-IMPROVEMENT-IDEAS.md), [tracklist format guide](docs/CSV-FORMAT.md), [troubleshooting](docs/TROUBLESHOOTING.md), [changelog](CHANGELOG.md), and [validation results and limits](docs/VALIDATION.md).
 
 ## Clean folder layout
 
@@ -72,7 +77,7 @@ Build downloads the pinned Sockseek 3.0.5 Windows engine and checks the ZIP and 
 
 ## Privacy and limitations
 
-Settings and retry lists stay in `state/` beside the app. Remembered Soulseek passwords are protected for the current Windows account using DPAPI. Spotify access tokens remain in memory. Soulseek credentials are temporarily written to a restricted engine configuration and removed after use. Search queries are sent to Soulseek; artwork lookup may contact Spotify, MusicBrainz, and the Cover Art Archive. Do not upload your state, music, debug logs, or real tracklists in bug reports.
+Settings, cached imports and retry lists stay in `state/` beside the app. Remembered Soulseek passwords are protected for the current Windows account using DPAPI. Spotify Web API tokens remain in memory; public album import does not use anonymous page tokens or preview audio. Soulseek credentials are temporarily written to a restricted engine configuration and removed after use; startup cleans abandoned configs under the session lease. Windows crash containment is best effort. Search queries are sent to Soulseek; public album import contacts Spotify and artwork lookup may contact Spotify, MusicBrainz, and the Cover Art Archive. Use **Library tools > Preview safe diagnostics** for a shareable version/policy/count report. Do not upload your state, music, debug logs, or real tracklists in bug reports.
 
 The app is Windows-only. Spotify API access is subject to your developer app's current permissions. Albums import as individual tracks. Reported speed is approximate byte-progress telemetry. Quick FLAC checks inspect headers; optional full checks decode audio using an externally supplied official FLAC tool. Neither proves lossless provenance. No automatic updater or always-running background service is included.
 
@@ -80,4 +85,4 @@ The app is Windows-only. Spotify API access is subject to your developer app's c
 
 FLAC-Downloader is released under **AGPL-3.0-only**. The independently launched [Sockseek](https://github.com/fiso64/sockseek) engine has its own upstream AGPL license and source. See [third-party notices](THIRD-PARTY-NOTICES.md). Contributions are welcome; please read [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Version 1.13 review decisions are documented in [the external-review follow-up](docs/REVIEW-1122.md).
+The [documentation index](docs/README.md) separates current guides from dated research and review records.
