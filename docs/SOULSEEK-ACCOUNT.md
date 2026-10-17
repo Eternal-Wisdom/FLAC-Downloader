@@ -10,6 +10,8 @@ You need a Soulseek **network** username and password. A login for the Soulseek 
 
 If you already use Nicotine+ or SoulseekQt, use your existing network credentials after disconnecting that client. You do not need to keep another client running.
 
+Some peers require users to share music. Set up suitable shared music in SoulseekQt or Nicotine+ using files you are entitled to share; this app does not configure shared folders. Never share your whole user profile, private documents or credentials.
+
 ## Login trouble
 
 - **Incorrect password:** check spelling and capitalization. For a new account, try a different username rather than repeatedly retrying a taken name.

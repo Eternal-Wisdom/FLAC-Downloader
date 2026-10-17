@@ -32,7 +32,9 @@ namespace PlaylistFlac
             try
             {
                 string outputFolder=Path.GetFullPath(output);
+                foreach(string warning in DestinationPreflight.Check(outputFolder))Say("Destination check: "+warning);
                 Directory.CreateDirectory(outputFolder);
+                EnvironmentGuard.EnsureWritableState(outputFolder);
                 // Keep this file between runs. Deleting it after closing would race with
                 // another process that has just acquired the same playlist lock.
                 using(var outputLock=AcquireOutputLock(outputFolder))

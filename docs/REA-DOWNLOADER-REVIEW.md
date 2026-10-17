@@ -1,5 +1,7 @@
 # Downloader function review with REA
 
+> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+
 Made using AI (OpenAI Codex). Reviewed 2026-10-13; local candidate 1.16.1.
 
 REA 6.4.0 analyzed the Motrix src/core/task source subtree at commit 99a40ab3dd91133056ac2cc08e5bbd90ce3afb9e. It parsed 119 TypeScript source files with zero parse failures, but reported partial graph coverage. This is static source evidence, not an observation of a running Motrix build or a complete application audit. Raw evidence includes local paths and remains outside release files.

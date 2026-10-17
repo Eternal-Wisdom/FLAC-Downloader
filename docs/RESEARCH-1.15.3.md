@@ -1,5 +1,7 @@
 # Downloader research and local decisions
 
+> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+
 Made using AI (OpenAI Codex). Reviewed October 11, 2026. Implemented in version 1.15.3.
 
 This is a focused review of relevant established projects and official documentation, not an exhaustive survey of the internet.

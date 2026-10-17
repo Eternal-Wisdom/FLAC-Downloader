@@ -38,6 +38,7 @@ namespace PlaylistFlac
             if(track.TrackNumber>0)text.AppendLine("Disc / track: "+(track.DiscNumber>0 ? track.DiscNumber.ToString() : "?")+" / "+track.TrackNumber);
             text.AppendLine("Status: "+status);
             if(!String.IsNullOrEmpty(latestState))text.AppendLine("Latest engine state: "+latestState);
+            if(status=="Failed")text.AppendLine("Failure explanation: "+FailureExplanation.Describe(latestState));
             text.AppendLine();
             text.AppendLine("Source peer: "+(peer ?? "Not reported for this track"));
             text.AppendLine("Source file: "+(filename ?? "Not reported for this track"));

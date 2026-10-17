@@ -1,5 +1,7 @@
 # Architecture review and recommendation decisions
 
+> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+
 Reviewed 2026-10-07 against the v1.11.0 source and bundled Sockseek 3.0.5 source. Changes are a local v1.12.0 candidate, not a published release.
 
 ## Rewrite decision
