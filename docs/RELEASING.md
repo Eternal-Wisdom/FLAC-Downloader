@@ -8,11 +8,13 @@
 
 The CI workflow builds and tests pull requests and pushes. Publication is manual; a tag alone does not publish binaries. The portable release includes the upstream engine's corresponding source archive and license. Do not distribute a replacement engine without updating those files, checksums, notices, and tests.
 
-## Release notes
+## Release notes for 1.18.0
 
-Made using AI (OpenAI Codex). Version 1.15.3 improves cover scheduling under uneven request latency, reduces queue allocations and unnecessary progress scans, and clears stale transfer status. It includes the previously local 1.15.1 and 1.15.2 fixes. No additional runtime dependency or replacement transport is introduced.
+**Made using AI (OpenAI Codex).** Version 1.18.0 adds public Spotify album import without a developer Client ID or sign-in, pasted songs/CSV, restart-safe cached imports, destination preflight checks, safe diagnostic preview/copy, plain-language failure explanations and a copyable Spotify redirect URI. Documentation covers the current interface, formats, troubleshooting, privacy and recovery. No new runtime dependency or replacement transport is introduced.
 
-The offline suite passed with 33 suites, zero failures, and zero skips. All 21 fresh live CSV/Soulseek assertions passed, including English/Japanese downloads, duplicate suppression, completed restart, unavailable-track export and paced retries, cancellation, and direct/fallback artwork retrieval. Native checks covered queue search, album availability, Explorer selection, repair preview/application, quick/full checks, and live Activity follow/pause. Downloaded audio passed the official decoder. Spotify API import was excluded by request; the native deletion-confirmation path and a live comparison of every concurrency/profile combination were not exercised. See `docs/VALIDATION.md` for evidence and limits.
+All **37 regression suites** passed with zero failures or skips. Fresh unauthenticated public imports returned **18, 9 and 36 tracks**, with Unicode, artist data, durations and CSV round trips checked. Native checks loaded a nine-track Japanese album without setup, reviewed safe diagnostics, rejected malformed pasted text, imported valid Unicode songs and restored their source identity after restart. The 1.17.6 Soulseek/decoder results remain historical evidence; no new Soulseek transfer test was performed for this revision. Authenticated Spotify Web API import remains a live-test gap without a Client ID. See [validation](VALIDATION.md).
+
+Public embed page schemas and regional availability can change. The app rejects explicit partial data, identity conflicts, empty/prerelease lists and lists of 100 or more tracks, and asks users to review the count. Metadata completeness cannot always be proved from the public page; CSV is the fallback. Anonymous tokens and preview audio are not used. Destination checks do not diagnose hardware faults or estimate total batch size. Single-peer album/master consistency and network-speed improvements are not claimed.
 
 Windows x64; unsigned executable. No live-peer speed improvement is claimed. Publication is a separate manual step; creating a local candidate does not authorize an automatic release.
 

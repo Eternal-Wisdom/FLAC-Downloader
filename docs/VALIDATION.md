@@ -1,5 +1,15 @@
 # Release validation
 
+## Local 1.18.0 improvement review (2026-10-17)
+
+All 37 suites passed with zero failures or skips before final packaging. New coverage checks credential-free public album import through a mock HTTP handler, cancellation, rate limiting without retry spam, album identity, malformed/empty/prerelease/very-large/partial metadata rejection, artist credits, durations, Unicode, ignored anonymous page tokens and unknown disc/ISRC fields. Existing authenticated/paginated API album tests still pass.
+
+Fresh live imports using the built importer, with no Spotify credentials, returned 18 tracks for Global Warming, 9 for THE BOOK, and 36 for Ghosts I-IV. All imported tracks had positive durations and artist data; each exported CSV reimported with the same count. These use Spotify's public album embed, whose internal page schema may change and whose completeness cannot always be proved from the page. The app rejects explicit truncation, lists of 100 or more tracks, missing fields and identity conflicts; it asks users to review the count and offers CSV fallback. Anonymous page tokens and audio previews are not used or cached. Signed-in Web API import remains a separate, previously untested live route without a developer Client ID.
+
+Native UI verification loaded THE BOOK directly into a nine-song queue without showing Spotify setup and with blank account settings. The diagnostics dialog displayed only approved version/policy/count fields. Pasted text rejected a malformed second line without replacing the queue, then imported two valid Unicode tracks. Reopening restored both pasted tracks and the same source identity, preserving the download-folder identity. Regression checks also cover free-space/path/cloud preflight, an unwritable file-parent conflict, pasted CSV, atomic text validation and adversarial diagnostic input.
+
+No new Soulseek audio-transfer test was performed for 1.18.0. The earlier 1.17.6 online and decoder results below remain historical evidence. Destination checks do not diagnose hardware health or estimate total batch size. New dependencies, signing claims, partial-transfer resume promises and single-master album guarantees are not introduced. See the [proposal decisions](REVIEW-IMPROVEMENT-IDEAS.md).
+
 ## Release 1.17.6 live verification (completed 2026-10-17)
 
 The installed 1.17.6 executable was copied into isolated test folders and hash-matched before testing. All 21 online backend assertions passed, and the full regression run passed 35 suites with zero failures or skips. Test account settings were cleared afterward. No private music or personal diagnostic logs are included in the release.

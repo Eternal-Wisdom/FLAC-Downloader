@@ -1,5 +1,7 @@
 # Downloader research: implementation decisions
 
+> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+
 Made using AI (OpenAI Codex). Local candidate; publication requires a separate request.
 
 ## Implemented

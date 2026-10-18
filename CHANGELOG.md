@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.18.0
+
+- Load public Spotify album links without developer credentials or sign-in. Validate page/album identity, metadata and response limits; reject incomplete or unverifiable lists. Preserve canonical album source identity across restart. Public page availability and schema can change; optional connected API imports remain supported.
+- Import pasted Artist - Title text or CSV from the Import menu, with atomic validation and locally cached tracklists that reopen after restart.
+- Check destination readiness, free-space reserve, path/link safety and write access before launching the engine. Warn about long, cloud-synced or network destinations.
+- Preview and copy allowlisted diagnostics without exporting logs, accounts, song names, local paths, peers or IP addresses.
+- Explain reported engine failure codes in track details and saved retries; add a Copy URI action to Spotify setup and sharing etiquette to Soulseek onboarding.
+- Add troubleshooting, tracklist-format and proposal-review guides. New form tools are split into a separate source file; retain the current engine and runtime.
+
 ## 1.17.6
 
 - Remove leftover temporary sign-in files at startup or before the next download, only while holding the shared session lease. Skip linked folders/files, preserve unrelated files and saved cooldowns, and retry locked files later.

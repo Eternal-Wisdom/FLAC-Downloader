@@ -1,5 +1,7 @@
 # Proposed functions review
 
+> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+
 Reviewed the five-page proposed-changes report against the local source on 2026-10-09. The report explicitly reviewed documentation rather than source. Its proposals are useful leads, not verified defects. Personal source material is not included in the release.
 
 ## Accepted in local 1.14
