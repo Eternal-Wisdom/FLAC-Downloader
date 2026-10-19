@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.18.1
+
+- Search shared album folders first for imported Spotify albums instead of forcing every request into song mode. Rank matching recording coverage before the selected quality/speed policy, then request only missing FLAC files from one folder.
+- Validate titles, version labels and durations; reject ambiguous matches. Preserve completed tracks, recover finished album files after interruption, and fall back to individual searches for gaps. Keep album searches bounded and retain existing search pacing.
+- Map direct-file progress back to imported songs and verify local FLAC headers/durations before adding files to the library.
+
 ## 1.18.0
 
 - Load public Spotify album links without developer credentials or sign-in. Validate page/album identity, metadata and response limits; reject incomplete or unverifiable lists. Preserve canonical album source identity across restart. Public page availability and schema can change; optional connected API imports remain supported.
