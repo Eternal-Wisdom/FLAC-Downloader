@@ -35,7 +35,7 @@ internal static class TestRunner
             {"ParallelDownloads",delegate { ParallelDownloadTests.Run(engine); }},
             {"LocalSettings",LocalSettings}, {"InputProperties",InputPropertyTests.Run}, {"Environment",EnvironmentTests.Run},
             {"MissingTrackExport",MissingTrackExportTests.Run}, {"EngineRunCleanup",EngineRunCleanupTests.Run},
-            {"Improvements",ImprovementTests.Run}, {"PublicAlbum",PublicAlbumTests.Run}
+            {"Improvements",ImprovementTests.Run}, {"PublicAlbum",PublicAlbumTests.Run}, {"AlbumFolders",AlbumFolderTests.Run}
         };
         var results = new List<Result>(); DateTime started = DateTime.UtcNow;
         foreach (var suite in suites)
