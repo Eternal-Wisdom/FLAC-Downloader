@@ -13,7 +13,7 @@ namespace PlaylistFlac
         public Track Original { get; set; }
         public Track Query { get; set; }
     }
-    internal sealed class SmartDownloader : IDisposable
+    internal sealed partial class SmartDownloader : IDisposable
     {
         public event Action<string> Log;
         public event Action<EngineProgress> Progress;
@@ -123,6 +123,14 @@ namespace PlaylistFlac
             bool preserveRecoveryOnly=false;
             try
             {
+                if(AlbumFolderSearch.Applies(source)) {
+                    int albumCode=await RunAlbumFolderPass(enginePath,pending,username,password,ct).ConfigureAwait(false);
+                    if(albumCode==130 || ct.IsCancellationRequested)return 130;
+                    if(albumCode!=0 && albumCode!=1)return albumCode;
+                    pending=pending.Where(t=>!Completed(t)).ToList();
+                    if(pending.Count==0)return reviewCount>0?1:0;
+                    Say("Album folder pass finished; searching individually for "+pending.Count+" remaining recordings.");
+                }
                 // A peer may simply have come online since the previous attempt.
                 // Do not put a whole playlist of optional metadata lookups before
                 // the first real search when the user presses Retry.
@@ -238,6 +246,7 @@ namespace PlaylistFlac
         }
         private void Recover()
         {
+            RecoverAlbumFiles();
             string map=Path.Combine(folder,".search","active-map.json");
             if(!File.Exists(map) || !File.Exists(LibraryLayout.PathFor(folder,".active-search-index.csv"))) return;
             var jobs=new JavaScriptSerializer{MaxJsonLength=16*1024*1024}.Deserialize<List<SearchJob>>(File.ReadAllText(map));

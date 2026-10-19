@@ -42,6 +42,9 @@ namespace PlaylistFlac
     {
         public event Action<string> Log;
         public event Action<EngineProgress> Progress;
+        internal bool AlbumSearch { get; set; }
+        internal bool DirectFiles { get; set; }
+        internal event Action<string> AlbumResults;
         private static readonly SemaphoreSlim processSlot = new SemaphoreSlim(1, 1);
         private readonly object gate = new object();
         private readonly string stateRoot;
@@ -123,7 +126,7 @@ namespace PlaylistFlac
                 var start = new ProcessStartInfo
                 {
                     FileName = enginePath,
-                    Arguments = BuildArguments(csvPath, outputDir, configPath, strictMatch, indexPath, playlistPath, tuning),
+                    Arguments = BuildArguments(csvPath, outputDir, configPath, strictMatch, indexPath, playlistPath, tuning, AlbumSearch, DirectFiles),
                     WorkingDirectory = runDir,
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -205,7 +208,7 @@ namespace PlaylistFlac
             return BuildArguments(csvPath, outputDir, configPath, strictMatch, indexPath, playlistPath, DownloadTuning.Default);
         }
 
-        internal static string BuildArguments(string csvPath, string outputDir, string configPath, bool strictMatch, string indexPath, string playlistPath, DownloadTuning tuning)
+        internal static string BuildArguments(string csvPath, string outputDir, string configPath, bool strictMatch, string indexPath, string playlistPath, DownloadTuning tuning, bool albumSearch=false, bool directFiles=false)
         {
             tuning = tuning ?? DownloadTuning.Default;
             var args = new List<string>
@@ -229,6 +232,11 @@ namespace PlaylistFlac
                 "--pref-min-bitrate", "0", "--pref-max-bitrate", "2147483647",
                 "--pref-max-samplerate", "2147483647", "--max-stale-time", "20000"
             };
+            if(albumSearch) {
+                args.Remove("--song");
+                args.AddRange(new[]{"--print","json-all","--strict-album","--strict-album-quality"});
+            }
+            if(directFiles)args[args.IndexOf("--input-type")+1]="list";
             if (strictMatch) { args.Add("--strict-title"); args.Add("--strict-artist"); }
             return String.Join(" ", args.ConvertAll(QuoteArgument));
         }
@@ -256,6 +264,11 @@ namespace PlaylistFlac
                 string line;
                 while ((line = reader.ReadLine()) != null)
                 {
+                    if(parseProgress && AlbumSearch && line.StartsWith("[",StringComparison.Ordinal) && (line=="[]" || line.StartsWith("[{",StringComparison.Ordinal))) {
+                        if(line.Length>8*1024*1024)throw new IOException("Album search results exceeded the safe size limit.");
+                        var results=AlbumResults;if(results!=null)results(line);
+                        continue;
+                    }
                     // The CLI also uses exit 1 for ordinary unavailable tracks.
                     // A fatal storage/startup error must not become another alias pass.
                     if(line.IndexOf("[critical] [cli]",StringComparison.OrdinalIgnoreCase)>=0 &&
