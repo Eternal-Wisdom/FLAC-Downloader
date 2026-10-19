@@ -1,6 +1,6 @@
 # Shared review follow-up (2026-10-09)
 
-> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+> Historical review: this records the version and date stated below. For current behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
 
 The [shared report](https://share.gemini.google/099QUnqK2m4f) explicitly says it could not inspect this repository. It is a general proposal, not evidence of defects in this app. Decisions below come from comparison with the current source. The Made using AI disclosure remains unchanged.
 

@@ -1,5 +1,13 @@
 # Release validation
 
+## Release 1.18.1 verification (2026-10-19)
+
+All 38 regression suites passed again with zero failures or skips on the final 1.18.1.0 executable on 2026-10-19. Fresh live public-album imports returned 18, 9 and 36 tracks with required metadata and CSV round-trip counts intact. Native UI checks loaded THE BOOK without credentials, filtered its Japanese title, and restored its nine-track queue after restarting the isolated app. The test UI deliberately omitted the engine folder; actual engine behavior was checked separately below. Live Soulseek peer transfers and authenticated Spotify Web API imports remain untested for this release. An additional end-to-end run through SmartDownloader and the actual pinned engine's offline client used synthetic FLAC audio: one existing recording stayed byte-identical, only the missing track downloaded via an album folder, both tracks were indexed, temporary peer links were removed, and restart launched no engine. The pipeline used exactly two engine runs (one album discovery and one direct-file pass), with no individual song search.
+
+The album-first pipeline uses the pinned engine's album search rather than creating one album job per song. Tests exercise actual engine album-folder JSON output and a direct single-file download through its offline mock client; the stable row filename is checked and unrequested files must not download. Regression coverage checks folder/artist/title/duration matching, Unicode, version rejection, ambiguous duplicates, coverage ranking, skipping completed tracks, progress identity, restart recovery, invalid-header and wrong-duration rejection, and removal of temporary direct links.
+
+This is offline engine validation, not a fresh live Soulseek transfer or a speed benchmark. Folder names and peer metadata cannot prove edition or source provenance. Compilation folders without per-track artists, translated titles, and missing durations may fall back to individual searches. Discovery is bounded to 75 seconds including pacing; cancellation remains available.
+
 ## Local 1.18.0 improvement review (2026-10-17)
 
 All 37 suites passed with zero failures or skips before final packaging. New coverage checks credential-free public album import through a mock HTTP handler, cancellation, rate limiting without retry spam, album identity, malformed/empty/prerelease/very-large/partial metadata rejection, artist credits, durations, Unicode, ignored anonymous page tokens and unknown disc/ISRC fields. Existing authenticated/paginated API album tests still pass.

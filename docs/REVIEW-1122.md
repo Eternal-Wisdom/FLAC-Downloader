@@ -1,6 +1,6 @@
 # External review decisions (2026-10-09)
 
-> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+> Historical review: this records the version and date stated below. For current behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
 
 The supplied review identifies useful validation and robustness work. Its example replacement is a console scaffold, not a replacement downloader: it omits playlist import, transfer orchestration, retries, library history and the desktop interface. Version 1.13 implements the applicable improvements below.
 
