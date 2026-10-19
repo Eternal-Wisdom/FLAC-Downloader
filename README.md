@@ -4,7 +4,7 @@
 
 A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify playlist, album, or CSV tracklist.
 
-**Current version: 1.18.0.** Start with the [quick start](docs/QUICKSTART.md), [interface guide](docs/UI-GUIDE.md), or [complete documentation index](docs/README.md).
+**Current version: 1.18.1.** Start with the [quick start](docs/QUICKSTART.md), [interface guide](docs/UI-GUIDE.md), or [complete documentation index](docs/README.md).
 
 ![FLAC-Downloader interface](docs/images/app.png)
 
@@ -16,7 +16,7 @@ Download the [Windows x64 portable ZIP](https://github.com/Eternal-Wisdom/FLAC-D
 2. Paste a public Spotify album link and choose **Load link** (no developer setup), or use **Import** for a CSV or pasted songs. Spotify playlist links use the optional Web API connection.
 3. Choose a destination and quality/speed preference, then select **Download FLAC**.
 
-Public album import reads Spotify's public page metadata. Review the imported track count: regional availability and page formats can change, and empty, prerelease or very large public tracklists may need CSV instead. Album downloads are matched per recording; importing an album does not guarantee one peer or one master.
+Public album import reads Spotify's public page metadata. Review the imported track count: regional availability and page formats can change, and empty, prerelease or very large public tracklists may need CSV instead. Album links first search shared album folders and prefer coverage before quality/speed. Only missing tracks with matching titles, artist/album folder labels and durations are requested; individual song searches fill gaps. Existing completed songs are skipped. This does not guarantee a single edition or lossless source provenance.
 
 Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, correctness, and speed depend on those peers. This app does not convert lossy files to FLAC or guarantee that a FLAC originated from a lossless source. Use it for music you are entitled to download and share. This project is not affiliated with Spotify, Soulseek, Nicotine+, or Sockseek.
 

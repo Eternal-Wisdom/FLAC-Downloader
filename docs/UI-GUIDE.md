@@ -1,6 +1,6 @@
 # Using the main window
 
-Current guide for **1.18.0**. Made using AI (OpenAI Codex).
+Current guide for **1.18.1**. Made using AI (OpenAI Codex).
 
 Click a song column heading to sort the displayed queue; click again to reverse. **#** restores source order. Sorting does not change download priority or playlist order.
 
@@ -34,3 +34,7 @@ To save a subset, filter or select songs, then right-click and choose Export sel
 
 In Activity, use Find to show messages containing a word or phrase. Ctrl+F focuses Find; Escape clears it. Follow new messages keeps results current. Turn Follow off to search the frozen reading snapshot, then turn it on to catch up. The existing recent-message limit still applies.
 
+
+## Album-folder matching
+
+Spotify album imports search shared album folders before individual songs. Activity explains folder coverage and the number of missing tracks requested. Completed songs are kept. Matches require FLAC, matching title/version text, artist and album folder labels, and a duration within five seconds. Only unambiguous matches are accepted; remaining songs use the existing individual searches. Folder selection prefers track coverage, then the selected quality/speed policy. A folder match cannot prove the release edition or source provenance.

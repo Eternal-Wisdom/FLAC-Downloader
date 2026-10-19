@@ -1,6 +1,6 @@
 # Functionality and dependency review
 
-> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+> Historical review: this records the version and date stated below. For current behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
 
 Reviewed 2026-10-07. These changes remain local; no GitHub upload or release is authorized. This is a scoped source review and synthetic regression exercise, not a guarantee that every possible bug has been found.
 

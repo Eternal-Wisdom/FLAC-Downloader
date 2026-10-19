@@ -1,6 +1,6 @@
 # GitHub downloader research for FLAC-Downloader
 
-> Historical review: this records the version and date stated below. For current 1.18.0 behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
+> Historical review: this records the version and date stated below. For current behavior and validation, see the [documentation index](README.md), [interface guide](UI-GUIDE.md) and [validation record](VALIDATION.md). Earlier deferred-feature and publication notes are historical, not current instructions.
 
 Reviewed: **2026-10-06**. App baseline: **v1.11.0**.
 

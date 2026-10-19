@@ -1,4 +1,4 @@
-# Documentation for FLAC-Downloader 1.18.0
+# Documentation for FLAC-Downloader 1.18.1
 
 Made using AI (OpenAI Codex).
 
@@ -13,9 +13,9 @@ Made using AI (OpenAI Codex).
 
 ## Current development and release references
 
-- [Validation](VALIDATION.md): 1.18.0 results first, followed by dated historical checks and their limits.
+- [Validation](VALIDATION.md): 1.18.1 results first, followed by dated historical checks and their limits.
 - [Release procedure and current release notes](RELEASING.md).
-- [1.18.0 improvement decisions](REVIEW-IMPROVEMENT-IDEAS.md).
+- [1.18.1 improvement decisions](REVIEW-IMPROVEMENT-IDEAS.md).
 - [Design principles](DOWNLOADER-DESIGN.md).
 - [Changelog](../CHANGELOG.md), [contributing](../CONTRIBUTING.md), [security](../SECURITY.md) and [AI disclosure](../AI-DISCLOSURE.md).
 

@@ -19,3 +19,7 @@ Public embed page schemas and regional availability can change. The app rejects 
 Windows x64; unsigned executable. No live-peer speed improvement is claimed. Publication is a separate manual step; creating a local candidate does not authorize an automatic release.
 
 Packaging checks the successful test receipt against the application and engine hashes. Rebuilding either binary requires another successful test run. Review the archive privacy audit and unresolved live-test limits before approving publication.
+
+## Local 1.18.1 preparation
+
+Album imports now perform a bounded album-folder discovery and request only missing, unambiguously matched FLAC tracks from one folder before individual fallback. All 38 suites and an additional offline end-to-end run passed, including existing-file preservation and no-download restart. This is not a new live Soulseek transfer benchmark.
