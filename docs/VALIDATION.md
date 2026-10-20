@@ -1,5 +1,9 @@
 # Release validation
 
+## Cross-drive naming correction (2026-10-20)
+
+The initial GitHub Windows run caught a naming failure when legacy metadata and private recovery storage were on different volumes. Atomic replacement now stages beside the destination metadata, including rollback; adjacent staging is removed after success or failure. The Naming suite checks successful replacement and locked-playlist rollback without leftover staging. All 40 local suites passed again after this correction. GitHub Windows check results are recorded on [release PR 12](https://github.com/Eternal-Wisdom/FLAC-Downloader/pull/12); publication requires passing checks on the corrected source.
+
 ## Release 1.19.1 completion cleanup (2026-10-19)
 
 Completion cleanup is checked with synthetic saved music, partial transfers, repair backups, raw indexes, settled review jobs, repeated cleanup and an indexed-file protection guard. Older unindexed music is preserved while the redundant playlist directory is removed. All 40 regression suites passed with zero failures or skips on the final 1.19.1.0 build. A fresh pinned-engine offline workflow downloaded only the missing album track, removed staging/search/repair directories after completion, preserved the existing audio hash, and launched no engine after restart. Both final FLAC files passed full decoding. No fresh peer-transfer, authenticated Spotify API, or native click-through test was performed for this layout-only update.
