@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -58,7 +58,7 @@ namespace PlaylistFlac
             catch (NotSupportedException) { readOnly = true; }
             Assert(readOnly, "Snapshot statuses must not be mutable.");
 
-            Directory.CreateDirectory(Path.Combine(root, ".search"));
+            Directory.CreateDirectory(LibraryLayout.PathFor(root,".search"));
             Track alias = Track("Alternate title");
             string newPath = Path.Combine(root, "fresh.flac"); File.WriteAllBytes(newPath, new byte[0]);
             WriteRaw(root, new[] { Saved(alias, newPath, 1), Saved(done, "", 2) });
@@ -80,7 +80,7 @@ namespace PlaylistFlac
 
             File.WriteAllText(LibraryLayout.PathFor(root,".active-search-index.csv"), "filepath,artist,album,title,length,tracktype,state,failurereason\n\"partial", Encoding.UTF8);
             Assert(LibraryStatus.Read(root, playlist).Completed == 2, "A partial raw CSV must fall back to the canonical index.");
-            File.WriteAllText(Path.Combine(root, ".search", "active-map.json"), "[{\"Original\":", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(LibraryLayout.PathFor(root,".search"),"active-map.json"), "[{\"Original\":", Encoding.UTF8);
             Assert(LibraryStatus.Read(root, playlist).Completed == 2, "A partial map must fall back to the canonical index.");
             Assert(File.ReadAllText(LibraryLayout.PathFor(root,"_index.csv")) == originalIndex, "Reading snapshots must never rewrite the saved index.");
             Assert(LibraryStatus.Read(Path.Combine(root, "not-created"), playlist).Ready == 5, "An unused destination must be entirely ready.");
@@ -88,7 +88,7 @@ namespace PlaylistFlac
 
         private static void CheckAmbiguousActiveQuery(string root)
         {
-            Directory.CreateDirectory(root); Directory.CreateDirectory(Path.Combine(root, ".search"));
+            Directory.CreateDirectory(root); Directory.CreateDirectory(LibraryLayout.PathFor(root,".search"));
             var duet = new Track { Title = "Song", Artist = "Lead, Guest", Artists = new[] { "Lead", "Guest" }, Album = "Album", DurationSeconds = 180, Isrc = "USAAA2000001" };
             var solo = new Track { Title = "Song", Artist = "Lead", Artists = new[] { "Lead" }, Album = "Album", DurationSeconds = 180, Isrc = "USAAA2000002" };
             var query = new Track { Title = "Song", Artist = "Lead", Album = "Album", DurationSeconds = 180 };
@@ -113,7 +113,7 @@ namespace PlaylistFlac
         private static Track Track(string title) { return new Track { Title = title, Artist = "Artist", Album = "Album", DurationSeconds = 100 }; }
         private static SavedTrack Saved(Track track, string path, int state) { return new SavedTrack { Track = track, Path = path, State = state, Reason = state == 2 ? 9 : 0 }; }
         private static MapRow Mapping(string root, Track original, Track query) { return new MapRow { Original = original, Query = query, OriginalKey = IndexStore.Key(original), Owner = root }; }
-        private static void WriteMap(string root, MapRow[] jobs) { File.WriteAllText(Path.Combine(root, ".search", "active-map.json"), new JavaScriptSerializer().Serialize(jobs), Encoding.UTF8); }
+        private static void WriteMap(string root, MapRow[] jobs) { File.WriteAllText(Path.Combine(LibraryLayout.PathFor(root,".search"),"active-map.json"), new JavaScriptSerializer().Serialize(jobs), Encoding.UTF8); }
         private static void WriteRaw(string root, SavedTrack[] entries)
         {
             var output = new StringBuilder("filepath,artist,album,title,length,tracktype,state,failurereason\r\n");

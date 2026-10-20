@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -52,21 +52,14 @@ namespace PlaylistFlac
                     }
                     if(catalog!=null && !ct.IsCancellationRequested && (code==0 || code==1))
                         catalog.Register(source,folder,index,ct);
+                    if((code==0 || code==1) && !ct.IsCancellationRequested)
+                        LibraryLayout.CleanupCompletedLocked(folder,Say);
                     return code;
                 }
             }
             finally { Interlocked.Exchange(ref running,0); }
         }
-        private static FileStream AcquireOutputLock(string outputFolder)
-        {
-            try { return new FileStream(Path.Combine(outputFolder,".download.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None); }
-            catch(IOException ex)
-            {
-                int code=ex.HResult & 0xffff;
-                if(code==32 || code==33) throw new IOException("Another download is already using this playlist folder. Stop that download or choose a different folder.",ex);
-                throw;
-            }
-        }
+        private static IDisposable AcquireOutputLock(string outputFolder) { return LibraryLayout.Lock(outputFolder); }
         internal async Task<LibraryMaintenanceResult> FixLibraryAsync(Playlist source,string output,string coverCacheDirectory,CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -91,6 +84,10 @@ namespace PlaylistFlac
                     result.Names=FinalizeNames(ct);
                     if(coverCacheDirectory!=null)
                         result.Covers=await ArtworkLibrary.FillAsync(folder,source,index,coverCacheDirectory,ct,Say).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
+                    LibraryLayout.CleanupCompletedLocked(folder,Say);
+                    result.Duplicates.BackupDirectory=null;result.Names.BackupDirectory=null;
+                    if(result.Covers!=null)result.Covers.RecoveryDirectory=null;
                     return result;
                 }
             }
@@ -98,7 +95,7 @@ namespace PlaylistFlac
         }
         private async Task<int> RunLockedAsync(string enginePath,Playlist source,string username,string password,bool strict,bool retryOnly,CancellationToken ct,ISet<string> selectedKeys)
         {
-            string state=Path.Combine(folder,".search"); Directory.CreateDirectory(state);
+            string state=LibraryLayout.Work(folder,".search"); Directory.CreateDirectory(state);
             recordings=RecordingGroups.Build(source.Tracks);
             index=IndexStore.Read(LibraryLayout.PathFor(folder,"_index.csv")); Recover();
             Say("Checking existing files for duplicate recordings...");
@@ -189,10 +186,10 @@ namespace PlaylistFlac
         private async Task<int> RunPass(string exe,List<SearchJob> jobs,string user,string password,bool strict,CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            string state=Path.Combine(folder,".search"), input=Path.Combine(state,"playlist.csv"), sessionIndex=LibraryLayout.PathFor(folder,".active-search-index.csv");
-            string incoming=Path.Combine(folder,".incoming",Guid.NewGuid().ToString("N"));
+            string state=LibraryLayout.Work(folder,".search"), input=Path.Combine(state,"playlist.csv"), sessionIndex=LibraryLayout.PathFor(folder,".active-search-index.csv");
+            string incoming=Path.Combine(LibraryLayout.Work(folder,".incoming"),Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(incoming);
-            File.SetAttributes(Path.Combine(folder,".incoming"),File.GetAttributes(Path.Combine(folder,".incoming")) | FileAttributes.Hidden);
+            File.SetAttributes(LibraryLayout.Work(folder,".incoming"),File.GetAttributes(LibraryLayout.Work(folder,".incoming")) | FileAttributes.Hidden);
             if(File.Exists(sessionIndex)) File.Delete(sessionIndex);
             IndexStore.AtomicWrite(Path.Combine(state,"active-map.json"),new JavaScriptSerializer {MaxJsonLength=16*1024*1024}.Serialize(jobs));
             CsvPlaylist.Write(input,new Playlist {Name=playlist.Name,Tracks=jobs.Select(j=>j.Query).ToList()});
@@ -208,6 +205,7 @@ namespace PlaylistFlac
                         if(update.Type=="track_state" && (update.Status=="Succeeded" || update.Status=="1") && !String.IsNullOrEmpty(update.DownloadPath))
                         {
                             string path=Path.GetFullPath(update.DownloadPath);
+                            path=LibraryLayout.Adopt(folder,path);
                             if(path.StartsWith(folder.TrimEnd('\\')+"\\",StringComparison.OrdinalIgnoreCase) && File.Exists(path))
                             {
                                 Remember(job.Original,path,1,0);
@@ -240,14 +238,15 @@ namespace PlaylistFlac
             ct.ThrowIfCancellationRequested();
             if(recordings!=null) DuplicateLibrary.ReuseCompleted(folder,recordings,index);
             IndexStore.Save(folder,index,playlist);
-            var result=LibraryNaming.RenameCompleted(folder,playlist,ct,Say,Path.Combine(folder,"playlist"));
+            var result=LibraryNaming.RenameCompleted(folder,playlist,ct,Say,folder);
             index=IndexStore.Read(LibraryLayout.PathFor(folder,"_index.csv"));
+            LibraryLayout.RemoveEmptyLegacy(folder);
             return result;
         }
         private void Recover()
         {
             RecoverAlbumFiles();
-            string map=Path.Combine(folder,".search","active-map.json");
+            string map=Path.Combine(LibraryLayout.Work(folder,".search"),"active-map.json");
             if(!File.Exists(map) || !File.Exists(LibraryLayout.PathFor(folder,".active-search-index.csv"))) return;
             var jobs=new JavaScriptSerializer{MaxJsonLength=16*1024*1024}.Deserialize<List<SearchJob>>(File.ReadAllText(map));
             if(jobs!=null) Merge(jobs);
@@ -266,6 +265,8 @@ namespace PlaylistFlac
                 SavedTrack result;
                 string queryKey=IndexStore.Key(job.Query);
                 if(ambiguousQueries.Contains(queryKey) || !Unambiguous(job.Original) || !results.TryGetValue(queryKey,out result) || Completed(job.Original))continue;
+                if(result.State==1 || result.State==3)result.Path=LibraryLayout.Adopt(folder,result.Path);
+                else if(!String.IsNullOrEmpty(result.Path) && result.Path.StartsWith(LibraryLayout.Work(folder,".incoming")+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))result.Path="";
                 if(!String.IsNullOrEmpty(result.Path) && !result.Path.StartsWith(root,StringComparison.OrdinalIgnoreCase))continue;
                 Remember(job.Original,result.Path,result.State,result.Reason);
             }
@@ -278,6 +279,7 @@ namespace PlaylistFlac
         private void Remember(Track original,string path,int state,int reason)
         {
             if(!Unambiguous(original)) return;
+            if(state==1 || state==3)path=LibraryLayout.Adopt(folder,path);
             foreach(var track in Members(original))
             {
                 string key=IndexStore.Key(track); SavedTrack prior;

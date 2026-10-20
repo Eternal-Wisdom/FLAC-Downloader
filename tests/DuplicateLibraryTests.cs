@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -50,7 +50,7 @@ namespace PlaylistFlac
             var index = Rows(Row(original, old), Row(deluxe, keep), Row(hits, "", 2), Row(otherArtist, other));
             IndexStore.Save(folder, index, playlist);
             byte[] oldIndex = File.ReadAllBytes(LibraryLayout.PathFor(folder,"_index.csv"));
-            byte[] oldPlaylist = File.ReadAllBytes(Path.Combine(folder, "playlist.m3u8"));
+            byte[] oldPlaylist = File.ReadAllBytes(LibraryLayout.PathFor(folder,"playlist.m3u8"));
             var preview=new List<string>();
             var planned=DuplicateLibrary.Consolidate(folder,playlist,RecordingGroups.Build(playlist.Tracks),index,CancellationToken.None,null,preview);
             Assert(planned.ArchivedFiles==1 && preview.Count==1 && File.Exists(old) && oldIndex.SequenceEqual(File.ReadAllBytes(LibraryLayout.PathFor(folder,"_index.csv"))) && index[IndexStore.Key(original)].Path==old,"Duplicate preview must not mutate files or saved state.");
@@ -128,7 +128,7 @@ namespace PlaylistFlac
                 try
                 {
                     DuplicateLibrary.Consolidate(folder, playlist, RecordingGroups.Build(playlist.Tracks), index, CancellationToken.None,
-                        delegate(string message) { held = new FileStream(Path.Combine(folder, "playlist.m3u8"), FileMode.Open, FileAccess.Read, FileShare.None); });
+                        delegate(string message) { held = new FileStream(LibraryLayout.PathFor(folder,"playlist.m3u8"), FileMode.Open, FileAccess.Read, FileShare.None); });
                 }
                 catch (IOException ex) { failure = ex; }
             }
@@ -233,10 +233,10 @@ namespace PlaylistFlac
 
         private static void AssertRepeatUnchanged(string folder, Playlist playlist, Dictionary<string, SavedTrack> index)
         {
-            var before = Snapshot(folder); int backups = Directory.GetDirectories(Path.Combine(folder,RecoveryFolders.Name), ".duplicates-backup-*").Length;
+            var before = Snapshot(folder); int backups = Directory.GetDirectories(LibraryLayout.Work(folder,"recovery"), "duplicates-*").Length;
             var result = Clean(folder, playlist, index);
             Assert(result.LinkedEntries == 0 && result.ArchivedFiles == 0 && result.BackupDirectory == null, "Repeated cleanup must be idempotent.");
-            Assert(Directory.GetDirectories(Path.Combine(folder,RecoveryFolders.Name), ".duplicates-backup-*").Length == backups, "Repeated cleanup must not create another recovery folder.");
+            Assert(Directory.GetDirectories(LibraryLayout.Work(folder,"recovery"), "duplicates-*").Length == backups, "Repeated cleanup must not create another recovery folder.");
             AssertSnapshot(folder, before, "Repeated cleanup must not rewrite existing files.");
         }
 
@@ -247,7 +247,7 @@ namespace PlaylistFlac
         private static Playlist List(params Track[] tracks) { var playlist = new Playlist(); playlist.Tracks.AddRange(tracks); return playlist; }
         private static SavedTrack Row(Track track, string path, int state = 1) { return new SavedTrack { Track = track, Path = path, State = state, Reason = state == 2 ? 5 : 0 }; }
         private static Dictionary<string, SavedTrack> Rows(params SavedTrack[] rows) { return rows.ToDictionary(x => IndexStore.Key(x.Track)); }
-        private static string[] Playback(string folder) { return File.ReadAllLines(Path.Combine(folder, "playlist.m3u8")).Where(x => x.Length > 0 && !x.StartsWith("#", StringComparison.Ordinal)).ToArray(); }
+        private static string[] Playback(string folder) { return File.ReadAllLines(LibraryLayout.PathFor(folder,"playlist.m3u8")).Where(x => x.Length > 0 && !x.StartsWith("#", StringComparison.Ordinal)).Select(x=>Path.IsPathRooted(x)?x.Substring(Path.GetFullPath(folder).TrimEnd('\\').Length+1).Replace('\\','/'):x).ToArray(); }
         private static string Write(string folder, string relative, byte[] bytes)
         { string path = Path.GetFullPath(Path.Combine(folder, relative)); Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllBytes(path, bytes); return path; }
         private static Dictionary<string, byte[]> Snapshot(string folder)

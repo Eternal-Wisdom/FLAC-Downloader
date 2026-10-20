@@ -1,5 +1,20 @@
 # Release validation
 
+## Cross-drive naming correction (2026-10-20)
+
+The initial GitHub Windows run caught a naming failure when legacy metadata and private recovery storage were on different volumes. Atomic replacement now stages beside the destination metadata, including rollback; adjacent staging is removed after success or failure. The Naming suite checks successful replacement and locked-playlist rollback without leftover staging. All 40 local suites passed again after this correction. GitHub Windows check results are recorded on [release PR 12](https://github.com/Eternal-Wisdom/FLAC-Downloader/pull/12); publication requires passing checks on the corrected source.
+
+## Release 1.19.1 completion cleanup (2026-10-19)
+
+Completion cleanup is checked with synthetic saved music, partial transfers, repair backups, raw indexes, settled review jobs, repeated cleanup and an indexed-file protection guard. Older unindexed music is preserved while the redundant playlist directory is removed. All 40 regression suites passed with zero failures or skips on the final 1.19.1.0 build. A fresh pinned-engine offline workflow downloaded only the missing album track, removed staging/search/repair directories after completion, preserved the existing audio hash, and launched no engine after restart. Both final FLAC files passed full decoding. No fresh peer-transfer, authenticated Spotify API, or native click-through test was performed for this layout-only update.
+
+## Local 1.19.0 layout verification (2026-10-19)
+
+All 39 regression suites passed with zero failures or skips on the final local build. New coverage checks flat playlist output, album order across discs, friendly-folder migration, stable retry identity, same-name source separation, restart recognition, an interrupted folder journal, adoption after a crash, staging migration, file actions, and reports staying outside music. Existing safety, rollback, locking, artwork, duplicate, and engine suites also passed. Tests use synthetic files; private music is not used as test data.
+
+The pinned engine was exercised end to end in its offline client with synthetic FLAC files: one preexisting album track stayed byte-identical, only the missing track was fetched through an album-folder pass, exactly two engine launches occurred, and restarting launched no engine. Final music contained only `01 - First.flac` and `02 - Second.flac`, and both passed full FLAC decoding. This is an offline engine workflow, not a fresh Soulseek peer-transfer or authenticated Spotify API test. These checks cover the offline engine workflow.
+
+
 ## Release 1.18.1 verification (2026-10-19)
 
 All 38 regression suites passed again with zero failures or skips on the final 1.18.1.0 executable on 2026-10-19. Fresh live public-album imports returned 18, 9 and 36 tracks with required metadata and CSV round-trip counts intact. Native UI checks loaded THE BOOK without credentials, filtered its Japanese title, and restored its nine-track queue after restarting the isolated app. The test UI deliberately omitted the engine folder; actual engine behavior was checked separately below. Live Soulseek peer transfers and authenticated Spotify Web API imports remain untested for this release. An additional end-to-end run through SmartDownloader and the actual pinned engine's offline client used synthetic FLAC audio: one existing recording stayed byte-identical, only the missing track downloaded via an album folder, both tracks were indexed, temporary peer links were removed, and restart launched no engine. The pipeline used exactly two engine runs (one album discovery and one direct-file pass), with no individual song search.
@@ -183,3 +198,6 @@ The subsequent local-only retry-list integrity fix also passed the full offline 
 On 2026-10-07, an authorized live Soulseek test downloaded a 12,915,143-byte FLAC in 30.9 seconds overall using the bundled engine. A separate full SmartDownloader workflow completed in 24.5 seconds. Repeating that workflow against its completed file returned success with zero network searches. Both used temporary storage outside the music library. These single-track observations include search and connection time; they are not sustained-speed or concurrent-throughput benchmarks and do not reproduce every peer or library condition.
 
 The full offline suite passed after making retries search before optional metadata lookup. Its cancellation regression checks that a retry reaches the search stage before remote alias lookup while preserving the saved index and releasing its collection lock. Remote alternate-name lookup now has a shared 30-second budget; local aliases remain available afterwards. The user's reported 10â€“15-minute stall was not reproduced in the live single-track tests. Mock engine tests verify transfer bytes and configured concurrency, not internet throughput. See [code review](CODE-REVIEW.md) for the implementation decisions and remaining limits.
+
+
+

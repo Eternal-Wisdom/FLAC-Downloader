@@ -18,7 +18,7 @@ namespace PlaylistFlac
     {
         private async Task<int> RunAlbumFolderPass(string exe,List<Track> pending,string user,string password,CancellationToken ct)
         {
-            string state=Path.Combine(folder,".search"),search=Path.Combine(state,"album-search.csv");
+            string state=LibraryLayout.PathFor(folder,".search"),search=Path.Combine(state,"album-search.csv");
             var artists=playlist.Tracks.Select(t=>t.PrimaryArtist).Where(a=>!String.IsNullOrWhiteSpace(a)).GroupBy(a=>a,StringComparer.OrdinalIgnoreCase).OrderByDescending(g=>g.Count()).ToList();
             if(artists.Count==0)return 1;
             // A blank title produces one actual album job, not an upgraded job per song.
@@ -39,7 +39,7 @@ namespace PlaylistFlac
             }
             if(choice==null) {Say("No album folder had confidently matching FLAC tracks; using individual song searches.");return 1;}
             Say("Selected one album folder matching "+choice.Coverage+" recordings; downloading "+choice.Files.Count+" missing tracks. Existing completed songs are skipped.");
-            string incoming=Path.Combine(folder,".incoming",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(incoming);
+            string incoming=Path.Combine(LibraryLayout.Work(folder,".incoming"),Guid.NewGuid().ToString("N"));Directory.CreateDirectory(incoming);
             string input=Path.Combine(state,"album-files.txt");
             File.WriteAllLines(input,choice.Files.Select(f=>f.Link).ToArray());
             var recovery=new AlbumRecovery{Incoming=incoming,Tracks=choice.Files.Select(f=>f.Track).ToList()};
@@ -61,20 +61,22 @@ namespace PlaylistFlac
         }
         private void RecoverAlbumFiles()
         {
-            string links=Path.Combine(folder,".search","album-files.txt");
+            string links=Path.Combine(LibraryLayout.PathFor(folder,".search"),"album-files.txt");
             if(File.Exists(links))File.Delete(links);
-            string map=Path.Combine(folder,".search","album-map.json");if(!File.Exists(map))return;
+            string map=Path.Combine(LibraryLayout.PathFor(folder,".search"),"album-map.json");if(!File.Exists(map))return;
             AlbumRecovery recovery;
             try {recovery=new JavaScriptSerializer{MaxJsonLength=4*1024*1024}.Deserialize<AlbumRecovery>(File.ReadAllText(map));}
             catch(ArgumentException){Say("Album recovery map needs review; files were preserved.");return;}
             if(recovery==null || recovery.Tracks==null || recovery.Tracks.Count>10000 || String.IsNullOrEmpty(recovery.Incoming))return;
-            string root=Path.GetFullPath(Path.Combine(folder,".incoming"))+Path.DirectorySeparatorChar;
+            string root=Path.GetFullPath(LibraryLayout.Work(folder,".incoming"))+Path.DirectorySeparatorChar;
+            string legacy=Path.GetFullPath(Path.Combine(folder,".incoming"))+Path.DirectorySeparatorChar;
+            if(Path.GetFullPath(recovery.Incoming).StartsWith(legacy,StringComparison.OrdinalIgnoreCase))root=legacy;
             string incoming=Path.GetFullPath(recovery.Incoming);
             if(!incoming.StartsWith(root,StringComparison.OrdinalIgnoreCase) || !String.Equals(Path.GetDirectoryName(incoming)+Path.DirectorySeparatorChar,root,StringComparison.OrdinalIgnoreCase) || !Directory.Exists(incoming) || (File.GetAttributes(incoming)&FileAttributes.ReparsePoint)!=0)return;
             for(int i=0;i<recovery.Tracks.Count;i++) {
                 var track=recovery.Tracks[i];if(!Unambiguous(track) || Completed(track))continue;
                 string path=Path.Combine(incoming,(i+1).ToString(CultureInfo.InvariantCulture)+".flac");
-                if(!DuplicateLibrary.SafeFile(folder,path))continue;
+                if(!DuplicateLibrary.SafeFile(incoming,path)) {path=LibraryLayout.Adopt(folder,path);if(!DuplicateLibrary.SafeFile(folder,path))continue;}
                 var header=FlacAudit.CheckFile(path,CancellationToken.None);
                 if(header.IsValid && header.DurationSeconds.HasValue && Math.Abs(header.DurationSeconds.Value-track.DurationSeconds)<=5)
                     Remember(track,path,1,0);

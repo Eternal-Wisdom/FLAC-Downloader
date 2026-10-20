@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -57,7 +57,7 @@ internal static class SmartTests
         Assert(read[IndexStore.Key(original)].Track.Title == original.Title && read[IndexStore.Key(original)].Track.Artist == original.Artist, "Canonical title/feat/credits survive CSV escaping.");
         Assert(IndexStore.Seconds(unknown) == -1 && IndexStore.Done(read[IndexStore.Key(unknown)]), "Unknown CSV duration maps to engine -1 identity.");
         Assert(IndexStore.Key(new Track {Title=unknown.Title,Artist=unknown.Artist,Album="",DurationSeconds=-1}) == IndexStore.Key(unknown), "Zero and engine -1 duration share identity.");
-        string[] m3u = File.ReadAllLines(Path.Combine(folder, "playlist.m3u8")).Where(x => x.Length > 0 && !x.StartsWith("#")).ToArray();
+        string[] m3u = File.ReadAllLines(LibraryLayout.PathFor(folder,"playlist.m3u8")).Where(x => x.Length > 0 && !x.StartsWith("#")).ToArray();
         Assert(m3u.Length == 2 && m3u[0] != m3u[1], "Playback playlist keeps first-source order without replaying the same file twice.");
         string duplicate = Row(rows[IndexStore.Key(original)]) + Row(new SavedTrack {Track=original,Path="",State=2,Reason=9});
         File.WriteAllText(Path.Combine(folder, "duplicate.csv"), Header + duplicate, new UTF8Encoding(false));
@@ -147,8 +147,8 @@ internal static class SmartTests
         var rows=IndexStore.Read(LibraryLayout.PathFor(folder,"_index.csv"));
         Assert(IndexStore.Done(rows[IndexStore.Key(original)]),"Recovery persists canonical success even when no pending tracks remain.");
         Assert(Path.GetFileName(rows[IndexStore.Key(original)].Path)==original.Title+".flac","Recovered aliases receive original source-title filename including feat.");
-        Assert(String.Equals(Path.GetDirectoryName(rows[IndexStore.Key(original)].Path),Path.Combine(folder,"playlist"),StringComparison.OrdinalIgnoreCase),"Recovered files leave private staging and enter the visible playlist folder.");
-        Assert(File.ReadAllText(Path.Combine(folder,"playlist.m3u8")).Contains(original.Title+".flac"),"Recovered playlist points to renamed canonical file.");
+        Assert(String.Equals(Path.GetDirectoryName(rows[IndexStore.Key(original)].Path),folder,StringComparison.OrdinalIgnoreCase),"Recovered files leave private staging and enter the visible playlist folder.");
+        Assert(File.ReadAllText(LibraryLayout.PathFor(folder,"playlist.m3u8")).Contains(original.Title+".flac"),"Recovered playlist points to renamed canonical file.");
         AssertLockAvailable(folder,"Recovery releases the playlist lock after canonical naming finishes.");
     }
 
@@ -249,7 +249,7 @@ internal static class SmartTests
         }
         using(var downloader=new SmartDownloader())
             Assert(downloader.RunAsync("must-never-run.exe",new Playlist(),folder,"fake","fake",true,false,CancellationToken.None).GetAwaiter().GetResult()==0,"Playlist can run after prior lock holder exits.");
-        Assert(File.Exists(lockPath),"Lock file remains in place to avoid an unlink/reacquire race.");
+        Assert(File.Exists(LibraryLayout.Work(folder,".download.lock")),"Lock file remains in place to avoid an unlink/reacquire race.");
         AssertLockAvailable(folder,"Successful early completion releases the output lock.");
     }
 
@@ -290,21 +290,21 @@ internal static class SmartTests
             catch(ArgumentException) { failed=true; }
             Assert(failed,"Test exercises recovery failure after acquiring the playlist lock.");
             AssertLockAvailable(folder,"Failed recovery releases the output lock.");
-            File.WriteAllText(map,"[]");
+            File.WriteAllText(Path.Combine(LibraryLayout.PathFor(folder,".search"),"active-map.json"),"[]");
             Assert(downloader.RunAsync("must-never-run.exe",new Playlist(),folder,"fake","fake",true,false,CancellationToken.None).GetAwaiter().GetResult()==0,"Downloader remains reusable after failed recovery.");
         }
     }
 
     private static void AssertLockAvailable(string folder,string message)
     {
-        try { using(var handle=new FileStream(Path.Combine(folder,".download.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None)) { } }
+        try { using(var handle=LibraryLayout.Lock(folder)) { } }
         catch(IOException) { throw new Exception("Smart downloader test failed: "+message); }
     }
     private static void AssertLockHeld(string folder)
     {
         bool held=false;
-        try { using(var handle=new FileStream(Path.Combine(folder,".download.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None)) { } }
-        catch(IOException ex) { int code=ex.HResult & 0xffff;held=code==32 || code==33; }
+        try { using(var handle=LibraryLayout.Lock(folder)) { } }
+        catch(IOException ex) { int code=ex.HResult & 0xffff;held=code==32 || code==33 || ex.Message.Contains("already using this playlist folder"); }
         Assert(held,"Exclusive playlist lock spans alias processing and finalization.");
     }
 

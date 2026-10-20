@@ -4,7 +4,7 @@
 
 A portable Windows desktop app for finding FLAC audio on Soulseek from a Spotify playlist, album, or CSV tracklist.
 
-**Current version: 1.18.1.** Start with the [quick start](docs/QUICKSTART.md), [interface guide](docs/UI-GUIDE.md), or [complete documentation index](docs/README.md).
+**Current version: 1.19.1.** Start with the [quick start](docs/QUICKSTART.md), [interface guide](docs/UI-GUIDE.md), or [complete documentation index](docs/README.md).
 
 ![FLAC-Downloader interface](docs/images/app.png)
 
@@ -26,8 +26,8 @@ Spotify supplies metadata; audio is obtained from Soulseek peers. Availability, 
 - FLAC-only filtering; Fast FLAC, Balanced, and higher-resolution preference profiles.
 - 8, 20, or 32 concurrent jobs. Jobs include searching and queued work, not just active transfers.
 - Conservative duplicate recording detection and cross-collection reuse.
-- Song-title filenames; artist names are added when different songs share a title.
-- Missing cover lookup, reversible metadata edits, and FLAC header checks.
+- Unnumbered playlist filenames and numbered album track order; artists are added when titles clash.
+- Missing cover lookup, protected metadata edits, and FLAC header checks.
 - Saved unavailable tracks with retries starting after 15 minutes and backing off to six hours. Launching or closing the app does not start background downloads.
 - Search by song, artist, or album; filter the queue by status, with live source details.
 - Repair previews, imported-album availability, and optional full audio verification using official FLAC tools.
@@ -51,17 +51,19 @@ FLAC-Downloader/
   engine/
 ```
 
-A music collection keeps playable content separate from tracking data:
+Music goes directly into a named playlist or album folder. Playlists use song titles without numbering; albums use imported track order, including across discs:
 
 ```text
-Collection/
-  playlist/                 # Your FLAC songs
-  playlist.m3u8             # Open this in your music player
-  .playlist-flac/           # Index, imported tracklist, and reports
-  .playlist-flac-recovery/  # Preserved undo data
+Music/
+  My playlist/
+    Song title.flac
+    Same title (Other artist).flac
+  Album name/
+    01 - First song.flac
+    02 - Second song.flac
 ```
 
-Hidden `.search`, `.incoming`, and lock files can also remain for interrupted-job recovery. Older artwork/duplicate recovery directories can contain absolute paths and are retained in their original location. Hidden items remain visible if Windows Explorer's Show hidden items is enabled. No recovery copies are silently deleted. See [folder and recovery details](docs/FOLDERS.md).
+Download indexes, reports, playback lists, locks and temporary transfer/repair files live in the app's private `state/collections/` storage. Completed jobs automatically clear staging, search maps and temporary repair backups. Stopped or failed jobs retain only the data needed to recover unfinished work. Keep `state/` when updating or moving the portable app: it contains resume information as well as settings. Existing hash-suffixed collection folders are discovered and organized during Download or Fix library; unrelated folders and unknown files are never overwritten. Same-name collections get a readable numeric suffix when necessary. See [folder and recovery details](docs/FOLDERS.md).
 
 ## Build and test
 
@@ -86,3 +88,4 @@ The app is Windows-only. Spotify API access is subject to your developer app's c
 FLAC-Downloader is released under **AGPL-3.0-only**. The independently launched [Sockseek](https://github.com/fiso64/sockseek) engine has its own upstream AGPL license and source. See [third-party notices](THIRD-PARTY-NOTICES.md). Contributions are welcome; please read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 The [documentation index](docs/README.md) separates current guides from dated research and review records.
+

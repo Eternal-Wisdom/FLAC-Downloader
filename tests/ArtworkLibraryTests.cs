@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -53,8 +53,8 @@ internal static class ArtworkLibraryTests
         using(var downloader=new SmartDownloader())
         {var result=downloader.FixLibraryAsync(p,folder,null,CancellationToken.None).GetAwaiter().GetResult();Check(result.Duplicates.ArchivedFiles==1 && result.Names.Renamed==2,"One action consolidates album repeats and renames both different artists.");}
         var after=IndexStore.Read(LibraryLayout.PathFor(folder,"_index.csv"));Check(after[IndexStore.Key(a)].Path==after[IndexStore.Key(deluxe)].Path,"Both albums link to one retained recording.");
-        Check(File.Exists(Path.Combine(folder,"playlist","KING (Artist A).flac")) && File.Exists(Path.Combine(folder,"playlist","KING (Artist B).flac")),"Same-title songs receive artist qualifiers without numbering.");
-        Check(Directory.GetFiles(Directory.GetDirectories(Path.Combine(folder,RecoveryFolders.Name),".duplicates-backup-*").Single(),"*.flac").Length==1,"The extra audio remains recoverable.");
+        Check(File.Exists(Path.Combine(folder,"KING (Artist A).flac")) && File.Exists(Path.Combine(folder,"KING (Artist B).flac")),"Same-title songs receive artist qualifiers without numbering.");
+        Check(!Directory.Exists(LibraryLayout.Work(folder,"recovery")),"Successful maintenance clears temporary duplicate and artwork recovery files.");
     }
     private static void Check(bool condition,string message){if(!condition)throw new Exception("Artwork library: "+message);}
 }

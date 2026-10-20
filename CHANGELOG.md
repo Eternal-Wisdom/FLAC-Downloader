@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.19.1 (2026-10-19)
+
+- Stage filename metadata replacements beside their destination so atomic commits and rollback work when music and private app state are on different drives.
+- Automatically clear staging, search maps, raw session indexes and repair backups after a settled download or successful library repair. Keep canonical history, music, reports and saved retries. Preserve recovery data when work stops or fails.
+- Flatten older unindexed FLAC files into the collection root without overwriting or deleting them. Update repair wording to explain permanent duplicate cleanup.
+
+- Save songs directly in readable collection folders, removing the redundant playlist directory. Keep playlist filenames unnumbered and prefix album songs by imported track order.
+- Move collection indexes, reports, playback lists, transfer staging, locks and recovery files into private app state. Preserve music bytes, safe collision handling, saved retries and existing download recognition.
+- Journal legacy folder moves, protect operations with temporary recovery maps, and reject conflicting or linked paths rather than overwrite data.
+
 ## 1.18.1
 
 - Search shared album folders first for imported Spotify albums instead of forcing every request into song mode. Rank matching recording coverage before the selected quality/speed policy, then request only missing FLAC files from one folder.

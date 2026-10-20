@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Threading;
@@ -93,7 +93,7 @@ namespace PlaylistFlac
                     "The audit must never modify audio files.");
 
                 string previousReport = csv;
-                using(var held=new FileStream(Path.Combine(root,".download.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))
+                using(var held=new FileStream(LibraryLayout.Work(root,".download.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))
                 {
                     bool blocked=false;
                     try {FlacAudit.CheckFolder(root,CancellationToken.None);}catch(IOException){blocked=true;}

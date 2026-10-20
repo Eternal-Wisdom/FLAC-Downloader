@@ -25,7 +25,7 @@ namespace PlaylistFlac
         internal int Count { get { return entries.Count; } }
         internal RetryList(string stateDirectory, string folder, Playlist playlist)
         {
-            string identity = Path.GetFullPath(folder).TrimEnd('\\').ToUpperInvariant()+"\n"+playlist.Source;
+            string identity = Path.GetFullPath(CollectionFolders.StorageIdentity(folder)).TrimEnd('\\').ToUpperInvariant()+"\n"+playlist.Source;
             string id;
             using(var sha=SHA256.Create()) id=BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(identity))).Replace("-","").ToLowerInvariant();
             path=Path.Combine(stateDirectory,"retry-lists",id+".json");

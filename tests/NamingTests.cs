@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -53,7 +53,7 @@ namespace PlaylistFlac
             File.WriteAllBytes(Path.Combine(folder, "Same.flac"), new byte[] { 42 });
             File.WriteAllBytes(Path.Combine(folder, "failed.flac"), new byte[0]);
             File.WriteAllText(LibraryLayout.PathFor(folder,"_index.csv"), String.Join("\n", rows) + "\n", new UTF8Encoding(false));
-            File.WriteAllText(Path.Combine(folder, "playlist.m3u8"), "#EXTM3U\n" + String.Join("\n", names) + "\n", new UTF8Encoding(false));
+            File.WriteAllText(LibraryLayout.PathFor(folder,"playlist.m3u8"), "#EXTM3U\n" + String.Join("\n", names) + "\n", new UTF8Encoding(false));
             var before=Directory.GetFiles(folder,"*",SearchOption.AllDirectories).OrderBy(x=>x).ToArray();
             var preview=new List<string>();var planned=LibraryNaming.RenameCompleted(folder,p,CancellationToken.None,null,null,preview);
             Assert(planned.Renamed==5 && preview.Count==5 && before.SequenceEqual(Directory.GetFiles(folder,"*",SearchOption.AllDirectories).OrderBy(x=>x)),"Preview must plan changes without writing files.");
@@ -64,9 +64,10 @@ namespace PlaylistFlac
             Assert(File.ReadAllBytes(Path.Combine(folder, "Same.flac"))[0] == 42, "Existing files may never be overwritten.");
             Assert(File.Exists(Path.Combine(folder, "AC_DC_ Song_.flac")) && File.Exists(Path.Combine(folder, "_CON.flac")), "Windows invalid and reserved names must be sanitized.");
             string index = File.ReadAllText(LibraryLayout.PathFor(folder,"_index.csv"));
-            string playlist = File.ReadAllText(Path.Combine(folder, "playlist.m3u8"));
+            string playlist = File.ReadAllText(LibraryLayout.PathFor(folder,"playlist.m3u8"));
             Assert(index.Contains("./Same (First).flac") && playlist.Contains("./album/夜の歌 (feat. Guest).flac"), "Both stored path formats must be updated.");
             Assert(Directory.Exists(result.BackupDirectory) && File.Exists(Path.Combine(result.BackupDirectory, "rename-map.csv")), "Original metadata and recovery mapping must be preserved.");
+            Assert(Directory.GetFiles(folder, "*.naming-*", SearchOption.AllDirectories).Length == 0, "Successful replacement must not leave adjacent staging files.");
             RenameResult again = LibraryNaming.RenameCompleted(folder, p, CancellationToken.None, null);
             Assert(again.Renamed == 0 && again.Unchanged == 5 && File.ReadAllText(LibraryLayout.PathFor(folder,"_index.csv")) == index, "A repeated invocation must not rename or rewrite again.");
         }
@@ -81,7 +82,7 @@ namespace PlaylistFlac
             var result = LibraryNaming.RenameCompleted(folder, p, CancellationToken.None, null);
             Assert(result.Renamed == 1 && File.Exists(Path.Combine(folder, "KING.flac")), "Several album aliases sharing one file must use a single stable representative name.");
             Assert(IndexStore.Read(LibraryLayout.PathFor(folder,"_index.csv")).Values.All(x => Path.GetFileName(x.Path) == "KING.flac"), "Every album alias must follow a shared file rename.");
-            Assert(File.ReadAllLines(Path.Combine(folder, "playlist.m3u8")).Count(x => x == "./KING.flac") == 3, "Playlist order and repeated entries must be preserved while paths share one recording.");
+            Assert(File.ReadAllLines(LibraryLayout.PathFor(folder,"playlist.m3u8")).Count(x => x == "./KING.flac") == 3, "Playlist order and repeated entries must be preserved while paths share one recording.");
             AssertRepeatUnchanged(folder, p, 1);
         }
 
@@ -101,7 +102,7 @@ namespace PlaylistFlac
                 Row(Path.GetFullPath(Path.Combine(folder, "old.flac")), absolute, 156, 1) + "\n" +
                 Row("./separate.flac", separate, 156, 1) + "\n" +
                 Row("../old.flac", unsafeRow, 156, 1) + "\n");
-            File.AppendAllText(Path.Combine(folder, "playlist.m3u8"), "./OLD.flac\n./separate.flac\n../old.flac\n");
+            File.AppendAllText(LibraryLayout.PathFor(folder,"playlist.m3u8"), "./OLD.flac\n./separate.flac\n../old.flac\n");
             string originalIndex = File.ReadAllText(indexPath);
             var result = LibraryNaming.RenameCompleted(folder, current, CancellationToken.None, null, "playlist");
             string renamed = Path.Combine(folder, "playlist", "KING.flac");
@@ -110,7 +111,7 @@ namespace PlaylistFlac
             Assert(new[] { current.Tracks[0], historical, absolute }.All(t => String.Equals(index[IndexStore.Key(t)].Path, renamed, StringComparison.OrdinalIgnoreCase)), "Historical relative, case-varied and absolute references must follow the physical file into its destination folder.");
             Assert(index[IndexStore.Key(historical)].State == 3 && index[IndexStore.Key(historical)].Track.Album == historical.Album, "Remapping historical paths must preserve their status and source metadata.");
             Assert(index[IndexStore.Key(separate)].Path == Path.Combine(folder, "separate.flac") && File.ReadAllBytes(Path.Combine(folder, "separate.flac")).SequenceEqual(new byte[] { 31, 32 }), "Independent historical files and their paths must remain untouched.");
-            Assert(File.ReadAllText(indexPath).Contains("../old.flac") && File.ReadAllLines(Path.Combine(folder, "playlist.m3u8")).Count(x => x == "./playlist/KING.flac") == 2, "Only contained references to the moved file may be remapped in the index and playlist.");
+            Assert(File.ReadAllText(indexPath).Contains("../old.flac") && File.ReadAllLines(LibraryLayout.PathFor(folder,"playlist.m3u8")).Count(x => x == "./playlist/KING.flac") == 2, "Only contained references to the moved file may be remapped in the index and playlist.");
             Assert(File.ReadAllText(Path.Combine(result.BackupDirectory, "_index.csv")) == originalIndex, "Recovery metadata must retain every original historical reference.");
             string updatedIndex = File.ReadAllText(indexPath);
             var again = LibraryNaming.RenameCompleted(folder, current, CancellationToken.None, null, "playlist");
@@ -206,12 +207,12 @@ namespace PlaylistFlac
                 rows.Add(Row("./" + files[i], playlist.Tracks[i], (int)playlist.Tracks[i].DurationSeconds, 1));
             }
             File.WriteAllText(LibraryLayout.PathFor(folder,"_index.csv"), String.Join("\n", rows) + "\n", new UTF8Encoding(false));
-            File.WriteAllText(Path.Combine(folder, "playlist.m3u8"), String.Join("\n", files) + "\n", new UTF8Encoding(false));
+            File.WriteAllText(LibraryLayout.PathFor(folder,"playlist.m3u8"), String.Join("\n", files) + "\n", new UTF8Encoding(false));
         }
 
         private static void AssertRepeatUnchanged(string folder, Playlist playlist, int files)
         {
-            string indexPath = LibraryLayout.PathFor(folder,"_index.csv"), m3uPath = Path.Combine(folder, "playlist.m3u8");
+            string indexPath = LibraryLayout.PathFor(folder,"_index.csv"), m3uPath = LibraryLayout.PathFor(folder,"playlist.m3u8");
             string index = File.ReadAllText(indexPath), m3u = File.ReadAllText(m3uPath);
             var marker = new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Utc);
             File.SetLastWriteTimeUtc(indexPath, marker); File.SetLastWriteTimeUtc(m3uPath, marker);
@@ -226,7 +227,7 @@ namespace PlaylistFlac
             var p = new Playlist(); p.Tracks.Add(new Track { Title = "Title", Artist = "Artist", DurationSeconds = 12 });
             File.WriteAllBytes(Path.Combine(folder, "Artist - Title.flac"), new byte[0]);
             File.WriteAllText(LibraryLayout.PathFor(folder,"_index.csv"), Header + "\n" + Row("./Artist - Title.flac", p.Tracks[0], 12, 1) + "\n");
-            File.WriteAllText(Path.Combine(folder, "playlist.m3u8"), "Artist - Title.flac\n");
+            File.WriteAllText(LibraryLayout.PathFor(folder,"playlist.m3u8"), "Artist - Title.flac\n");
             return p;
         }
 
@@ -237,12 +238,13 @@ namespace PlaylistFlac
             try
             {
                 LibraryNaming.RenameCompleted(folder, p, CancellationToken.None, delegate(string message)
-                { if (message.StartsWith("Applying", StringComparison.Ordinal)) locked = new FileStream(Path.Combine(folder, "playlist.m3u8"), FileMode.Open, FileAccess.Read, FileShare.None); });
+                { if (message.StartsWith("Applying", StringComparison.Ordinal)) locked = new FileStream(LibraryLayout.PathFor(folder,"playlist.m3u8"), FileMode.Open, FileAccess.Read, FileShare.None); });
             }
             catch (IOException) { failed = true; }
             finally { if (locked != null) locked.Dispose(); }
             Assert(failed && File.Exists(Path.Combine(folder, "Artist - Title.flac")) && !File.Exists(Path.Combine(folder, "Title.flac")), "A metadata commit failure must roll filenames back.");
             Assert(File.ReadAllText(LibraryLayout.PathFor(folder,"_index.csv")) == index, "An already committed index must be restored on playlist failure.");
+            Assert(Directory.GetFiles(folder, "*.naming-*", SearchOption.AllDirectories).Length == 0, "Failed replacement and rollback must clear adjacent staging files.");
         }
 
         private static void CheckCancel(string folder)

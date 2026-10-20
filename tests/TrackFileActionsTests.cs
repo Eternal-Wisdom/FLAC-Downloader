@@ -45,7 +45,7 @@ internal static class TrackFileActionsTests
             TrackFileActions.Recycle(folder,playlist,song,file,p=>File.Move(p,Path.Combine(root,"recycled.flac")));
             Check(!File.Exists(file) && File.Exists(second) && File.Exists(outside),"only the resolved song is removed");
             Check(LibraryStatus.Read(folder,playlist).StatusFor(reissue)=="Ready","saved status refreshed after removal");
-            Check(!File.ReadAllText(Path.Combine(folder,"playlist.m3u8")).Contains("KING - Artist A"),"playable list drops the removed file");
+            Check(!File.ReadAllText(LibraryLayout.PathFor(folder,"playlist.m3u8")).Contains("KING - Artist A"),"playable list drops the removed file");
             File.Move(Path.Combine(root,"recycled.flac"),file);
             index.Remove(IndexStore.Key(song));index[IndexStore.Key(reissue)].Path=file;IndexStore.Save(folder,index,playlist);
             string duplicate=Path.Combine(folder,"playlist","duplicate.flac");File.WriteAllText(duplicate,"duplicate");

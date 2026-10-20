@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -71,7 +71,7 @@ namespace PlaylistFlac
                 "--concurrent-jobs", capacity.ToString(CultureInfo.InvariantCulture), "--concurrent-searches", capacity.ToString(CultureInfo.InvariantCulture),
                 "--searches-per-time", "64", "--searches-renew-time", "1", "--max-retries", "1", "--progress-json",
                 "--write-index", "--index-path", LibraryLayout.PathFor(output,"_index.csv"),
-                "--write-playlist", "--playlist-path", Path.Combine(output, "playlist.m3u8")
+                "--write-playlist", "--playlist-path", LibraryLayout.PathFor(output,"playlist.m3u8")
             };
             string stdout, stderr; int exit;
             var info = new ProcessStartInfo(enginePath, String.Join(" ", arguments.Select(Quote)))
@@ -132,7 +132,7 @@ namespace PlaylistFlac
             }
             Check(Directory.GetFiles(output, "*.mp3", SearchOption.AllDirectories).Length == 0, "FLAC filtering must not copy MP3 fixtures.");
             Check(Directory.GetFiles(output, "*.incomplete", SearchOption.AllDirectories).Length == 0, "Completed runs must not retain incomplete fixture files.");
-            Check(File.Exists(LibraryLayout.PathFor(output,"_index.csv")) && File.Exists(Path.Combine(output, "playlist.m3u8")), "The actual engine must write its index and playback playlist.");
+            Check(File.Exists(LibraryLayout.PathFor(output,"_index.csv")) && File.Exists(LibraryLayout.PathFor(output,"playlist.m3u8")), "The actual engine must write its index and playback playlist.");
             return peak;
         }
 

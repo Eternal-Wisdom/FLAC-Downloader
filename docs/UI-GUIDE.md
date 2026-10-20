@@ -1,6 +1,6 @@
 # Using the main window
 
-Current guide for **1.18.1**. Made using AI (OpenAI Codex).
+Current guide for **1.19.1**. Made using AI (OpenAI Codex).
 
 Click a song column heading to sort the displayed queue; click again to reverse. **#** restores source order. Sorting does not change download priority or playlist order.
 
@@ -16,7 +16,7 @@ Use **Ctrl+F** to find songs by title, artist, or album. **Escape** clears the s
 
 **Library tools** contains header checks, optional full audio checks, repair previews, saved retry review, unavailable-song export, safe diagnostics and troubleshooting. **Activity** shows the running log. Optional Spotify setup is not needed for public album, CSV or pasted-text imports.
 
-Public album metadata includes song titles, artist credits, durations and available artwork. Review the count: public pages can be unavailable or change format. The app refuses explicitly incomplete, prerelease, empty or very large public lists. CSV is the fallback. It does not use preview audio or anonymous page tokens. Album tracks are sourced individually; one-peer or one-master sourcing is not guaranteed. Imported public album and pasted tracklists reopen from private cached CSVs while preserving collection identity.
+Public album metadata includes song titles, artist credits, durations and available artwork. Review the count: public pages can be unavailable or change format. The app refuses explicitly incomplete, prerelease, empty or very large public lists. CSV is the fallback. It does not use preview audio or anonymous page tokens. Albums first try a matching shared folder, then search for missing songs individually; a single edition or master is not guaranteed. Imported public album and pasted tracklists reopen from private cached CSVs while preserving collection identity.
 
 Pasted text uses one **Artist - Title** per line, with spaced em/en dashes also accepted. Invalid lines reject the whole text import; nothing downloads automatically. For punctuation that makes artist/title boundaries ambiguous, paste a CSV with headers instead. See [tracklist formats](CSV-FORMAT.md).
 
@@ -38,3 +38,4 @@ In Activity, use Find to show messages containing a word or phrase. Ctrl+F focus
 ## Album-folder matching
 
 Spotify album imports search shared album folders before individual songs. Activity explains folder coverage and the number of missing tracks requested. Completed songs are kept. Matches require FLAC, matching title/version text, artist and album folder labels, and a duration within five seconds. Only unambiguous matches are accepted; remaining songs use the existing individual searches. Folder selection prefers track coverage, then the selected quality/speed policy. A folder match cannot prove the release edition or source provenance.
+

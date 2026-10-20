@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,12 +23,12 @@ internal static class RecordingCatalogTests
             var reissue=new Track {Title="Song",Artist="Artist",Album="Greatest Hits",Isrc=song.Isrc,DurationSeconds=181};
             string reused=catalog.Reuse(reissue,target,CancellationToken.None);
             Check(reused!=null && File.ReadAllBytes(reused).SequenceEqual(bytes),"same recording on another album reused unchanged");
-            Check(Path.GetFullPath(reused).StartsWith(target+Path.DirectorySeparatorChar),"reuse stays in destination");
+            Check(Path.GetFullPath(reused).StartsWith(LibraryLayout.Work(target,".incoming")+Path.DirectorySeparatorChar),"reuse stays in destination");
             string integrated=Path.Combine(root,"integration");
             using(var downloader=new SmartDownloader()) {
                 int code=downloader.RunAsync(Path.Combine(root,"engine-does-not-exist.exe"),new Playlist {Name="Reissue",Source="test",Tracks=new List<Track>{reissue}},integrated,"unused","unused",true,false,CancellationToken.None,null,null,null,Path.Combine(root,"state")).GetAwaiter().GetResult();
                 Check(code==0,"reuse completes without launching an engine");
-                Check(File.ReadAllText(Path.Combine(integrated,"playlist.m3u8")).Contains("Song.flac"),"reused song enters playable playlist with finalized name");
+                Check(File.ReadAllText(LibraryLayout.PathFor(integrated,"playlist.m3u8")).Contains("Song.flac"),"reused song enters playable playlist with finalized name");
                 Check(File.ReadAllBytes(source).SequenceEqual(bytes),"source remains unchanged");
             }
             string canceledFolder=Path.Combine(root,"canceled-run");
