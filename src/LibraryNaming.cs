@@ -156,9 +156,6 @@ namespace PlaylistFlac
             File.WriteAllBytes(Path.Combine(backup, "_index.csv"), indexBytes);
             if (playlistBytes != null) File.WriteAllBytes(Path.Combine(backup, "playlist.m3u8"), playlistBytes);
             File.WriteAllText(Path.Combine(backup, "rename-map.csv"), WriteCsv(new List<List<string>> { new List<string> { "original", "renamed" } }.Concat(changes.Select(c => new List<string> { Relative(root, c.From), Relative(root, c.To) })).ToList()), new UTF8Encoding(false));
-            string stagedIndex = Path.Combine(backup, "index.new"), stagedPlaylist = Path.Combine(backup, "playlist.new");
-            File.WriteAllText(stagedIndex, WriteCsv(rows), new UTF8Encoding(false));
-            if (newPlaylist != null) File.WriteAllText(stagedPlaylist, newPlaylist, new UTF8Encoding(false));
             var applied = new List<Change>(); bool indexUpdated = false, playlistUpdated = false;
             try
             {
@@ -174,8 +171,8 @@ namespace PlaylistFlac
                 }
                 ct.ThrowIfCancellationRequested();
                 LibraryLayout.MetadataPath(root, indexPath); LibraryLayout.MetadataPath(root, playlistPath);
-                File.Replace(stagedIndex, indexPath, null); indexUpdated = true;
-                if (newPlaylist != null) { File.Replace(stagedPlaylist, playlistPath, null); playlistUpdated = true; }
+                ReplaceMetadata(root, indexPath, new UTF8Encoding(false).GetBytes(WriteCsv(rows))); indexUpdated = true;
+                if (newPlaylist != null) { ReplaceMetadata(root, playlistPath, new UTF8Encoding(false).GetBytes(newPlaylist)); playlistUpdated = true; }
                 result.Renamed = changes.Count;
             }
             catch (Exception failure)
@@ -199,11 +196,24 @@ namespace PlaylistFlac
         {
             try
             {
-                LibraryLayout.MetadataPath(root, path);
-                string temp = Path.Combine(backup, Guid.NewGuid().ToString("N") + ".restore");
-                File.WriteAllBytes(temp, bytes); File.Replace(temp, path, null);
+                ReplaceMetadata(root, path, bytes);
             }
             catch (Exception ex) { errors.Add(ex); }
+        }
+
+        private static void ReplaceMetadata(string root, string path, byte[] bytes)
+        {
+            LibraryLayout.MetadataPath(root, path);
+            // Atomic replacement requires the temporary file on the destination
+            // volume. Recovery storage can live on a different drive.
+            string temp = path + ".naming-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                LibraryLayout.MetadataPath(root, temp);
+                File.WriteAllBytes(temp, bytes);
+                File.Replace(temp, path, null);
+            }
+            finally { if (File.Exists(temp)) File.Delete(temp); }
         }
 
         private static Dictionary<string, string> RecordingNames(RecordingGroups recordings)
