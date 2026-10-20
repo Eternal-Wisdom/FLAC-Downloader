@@ -34,7 +34,7 @@ namespace PlaylistFlac
 
         internal static void Recycle(string folder, Playlist playlist, Track track, string expectedPath, Action<string> recycle=null)
         {
-            using(var held=new FileStream(Path.Combine(folder,".download.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None))
+            using(var held=LibraryLayout.Lock(folder))
             {
                 string path=Resolve(folder,playlist,track);
                 if(!String.Equals(path,expectedPath,StringComparison.OrdinalIgnoreCase))throw new IOException("The saved file changed. Select the song again before removing it.");

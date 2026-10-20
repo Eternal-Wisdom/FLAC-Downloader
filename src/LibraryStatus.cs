@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -70,7 +70,7 @@ namespace PlaylistFlac
 
         private static void MergeActive(string root, Dictionary<string, string> statuses)
         {
-            string mapPath = Path.Combine(root, ".search", "active-map.json");
+            string mapPath = Path.Combine(LibraryLayout.PathFor(root,".search"),"active-map.json");
             if (!File.Exists(mapPath)) return;
             try
             {

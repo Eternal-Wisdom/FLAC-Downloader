@@ -41,7 +41,7 @@ namespace PlaylistFlac
                 if (!String.Equals(targetDirectory, root, StringComparison.OrdinalIgnoreCase)) targetDirectory = SafePath(root, targetDirectory);
                 if (File.Exists(targetDirectory)) throw new IOException("The destination must be a directory.");
             }
-            string indexPath = SafePath(root, LibraryLayout.PathFor(root,"_index.csv")), playlistPath = SafePath(root, "playlist.m3u8");
+            string indexPath = LibraryLayout.MetadataPath(root, LibraryLayout.PathFor(root,"_index.csv")), playlistPath = LibraryLayout.MetadataPath(root, LibraryLayout.PathFor(root,"playlist.m3u8"));
             var result = new RenameResult();
             if (!File.Exists(indexPath)) { result.Skipped = original.Tracks.Count; return result; }
             byte[] indexBytes = File.ReadAllBytes(indexPath);
@@ -54,6 +54,14 @@ namespace PlaylistFlac
             foreach (string name in required) if (!columns.ContainsKey(name)) throw new InvalidDataException("Unknown download index format: missing " + name + ".");
             var recordings = RecordingGroups.Build(original.Tracks);
             var names = RecordingNames(recordings);
+            if ((SpotifyImporter.IsAlbumLink(original.Source) || CollectionFolders.IsAlbum(root))) {
+                int number=0;var numbered=new HashSet<string>(StringComparer.Ordinal);
+                int width=Math.Max(2,original.Tracks.Count.ToString(CultureInfo.InvariantCulture).Length);
+                foreach(var track in original.Tracks) {
+                    number++;var group=recordings.GroupForKey(IndexStore.Key(track));
+                    if(group!=null && numbered.Add(group.Key))names[group.Key]=number.ToString(new string('0',width),CultureInfo.InvariantCulture)+" - "+names[group.Key];
+                }
+            }
             var originals = new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase);
             foreach (Track track in original.Tracks)
             {
@@ -98,10 +106,20 @@ namespace PlaylistFlac
                 else if (!String.Equals(file.GroupKey, groupKey, StringComparison.Ordinal))
                     throw new InvalidDataException("One completed file is indexed as different recordings; no files were renamed.");
             }
+            // Flatten old music even when a file is missing from the current index.
+            // Its identity is unknown, so preserve its name and bytes; never infer a duplicate.
+            string legacyMusic=Path.Combine(root,"playlist");
+            if(String.Equals(targetDirectory,root,StringComparison.OrdinalIgnoreCase) && Directory.Exists(legacyMusic)) {
+                SafePath(root,legacyMusic);
+                foreach(string candidate in Directory.GetFiles(legacyMusic,"*.flac",SearchOption.TopDirectoryOnly)) {
+                    ct.ThrowIfCancellationRequested();string path=SafePath(root,candidate);
+                    if(!byPath.ContainsKey(path)){var file=new CompletedFile{From=path};byPath.Add(path,file);files.Add(file);}
+                }
+            }
             foreach (CompletedFile file in files)
             {
                 ct.ThrowIfCancellationRequested();
-                string title = names[file.GroupKey];
+                string title = file.GroupKey==null?SafeTitle(Path.GetFileNameWithoutExtension(file.From)):names[file.GroupKey];
                 string directory = targetDirectory ?? Path.GetDirectoryName(file.From);
                 string to = Path.Combine(directory, title + ".flac");
                 int suffix = 2;
@@ -130,7 +148,7 @@ namespace PlaylistFlac
                 catch (ArgumentException) { }
                 catch (UnauthorizedAccessException) { }
             }
-            string newPlaylist = playlistBytes == null ? null : RewritePlaylist(root, Encoding.UTF8.GetString(playlistBytes), mapping);
+            string newPlaylist = playlistBytes == null ? null : RewritePlaylist(root, Encoding.UTF8.GetString(playlistBytes), mapping, playlistPath.StartsWith(LibraryLayout.Storage(root)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase));
             ct.ThrowIfCancellationRequested();
             RecoveryFolders.Prepare(root);
             string backup = RecoveryFolders.NewPath(root,"naming");
@@ -155,7 +173,7 @@ namespace PlaylistFlac
                     File.Move(change.From, change.To); applied.Add(change);
                 }
                 ct.ThrowIfCancellationRequested();
-                SafePath(root, indexPath); SafePath(root, playlistPath);
+                LibraryLayout.MetadataPath(root, indexPath); LibraryLayout.MetadataPath(root, playlistPath);
                 File.Replace(stagedIndex, indexPath, null); indexUpdated = true;
                 if (newPlaylist != null) { File.Replace(stagedPlaylist, playlistPath, null); playlistUpdated = true; }
                 result.Renamed = changes.Count;
@@ -181,7 +199,7 @@ namespace PlaylistFlac
         {
             try
             {
-                SafePath(root, path);
+                LibraryLayout.MetadataPath(root, path);
                 string temp = Path.Combine(backup, Guid.NewGuid().ToString("N") + ".restore");
                 File.WriteAllBytes(temp, bytes); File.Replace(temp, path, null);
             }
@@ -261,7 +279,7 @@ namespace PlaylistFlac
             return name;
         }
 
-        private static string RewritePlaylist(string root, string text, Dictionary<string, string> mapping)
+        private static string RewritePlaylist(string root, string text, Dictionary<string, string> mapping, bool absolute)
         {
             return Regex.Replace(text, @"[^\r\n]+", delegate(Match match)
             {
@@ -270,7 +288,7 @@ namespace PlaylistFlac
                 try
                 {
                     if (mapping.TryGetValue(SafePath(root, line), out destination))
-                        return (match.Value.StartsWith("\uFEFF", StringComparison.Ordinal) ? "\uFEFF" : "") + Relative(root, destination);
+                        return (match.Value.StartsWith("\uFEFF", StringComparison.Ordinal) ? "\uFEFF" : "") + (absolute ? destination : Relative(root, destination));
                 }
                 catch (IOException) { }
                 catch (ArgumentException) { }

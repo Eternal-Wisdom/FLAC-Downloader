@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -37,16 +37,17 @@ namespace PlaylistFlac
 
         private static SavedTrack FindKeeper(string folder, RecordingGroup group, Dictionary<string, SavedTrack> index)
         {
-            SavedTrack fallback = null;
-            string finalized = Path.GetFullPath(Path.Combine(folder, "playlist")).TrimEnd('\\') + "\\";
+            SavedTrack fallback = null,legacy = null;
+            string finalized = Path.GetFullPath(folder).TrimEnd('\\');
             foreach (var track in group.Tracks)
             {
                 SavedTrack row;
                 if (!index.TryGetValue(IndexStore.Key(track), out row) || !IndexStore.Done(row) || !SafeFile(folder, row.Path)) continue;
-                if (row.Path.StartsWith(finalized, StringComparison.OrdinalIgnoreCase)) return row;
+                if (String.Equals(Path.GetDirectoryName(row.Path),finalized,StringComparison.OrdinalIgnoreCase)) return row;
+                if(String.Equals(Path.GetDirectoryName(row.Path),Path.Combine(finalized,"playlist"),StringComparison.OrdinalIgnoreCase) && legacy==null)legacy=row;
                 if (fallback == null) fallback = row;
             }
-            return fallback;
+            return legacy??fallback;
         }
 
         internal static DuplicateCleanupResult Consolidate(string folder, Playlist playlist, RecordingGroups groups, Dictionary<string, SavedTrack> index, CancellationToken ct, Action<string> log, List<string> preview=null)
@@ -56,7 +57,7 @@ namespace PlaylistFlac
                 throw new IOException("Choose a playlist folder rather than a drive root.");
             if (!Directory.Exists(root) || (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Choose an existing playlist folder that is not a directory link.");
-            SafePath(root, LibraryLayout.PathFor(root,"_index.csv"));
+            LibraryLayout.MetadataPath(root, LibraryLayout.PathFor(root,"_index.csv"));
             var result = new DuplicateCleanupResult();
             var next = new Dictionary<string, SavedTrack>(index);
             result.LinkedEntries = ReuseCompleted(root, groups, next);
@@ -73,10 +74,10 @@ namespace PlaylistFlac
             // Old app versions could leave an unindexed numbered copy. Only
             // archive those after comparing the actual encoded audio bytes;
             // matching titles or declared header MD5 alone never suffice.
-            string music = Path.Combine(root, "playlist");
+            string music = root;
             if (Directory.Exists(music))
             {
-                SafePath(root, music);
+                LibraryLayout.Check(music);
                 var bySignature = new Dictionary<string, List<string>>(StringComparer.Ordinal);
                 foreach (string path in referenced)
                 {
@@ -88,7 +89,7 @@ namespace PlaylistFlac
                     matches.Add(path);
                 }
                 var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (string path in Directory.EnumerateFiles(music, "*.flac", SearchOption.TopDirectoryOnly))
+                foreach (string path in new[]{music,Path.Combine(root,"playlist")}.Where(Directory.Exists).SelectMany(d=>Directory.EnumerateFiles(d,"*.flac",SearchOption.TopDirectoryOnly)))
                 {
                     ct.ThrowIfCancellationRequested();
                     if (referenced.Contains(path) || moves.ContainsKey(path) || !SafeFile(root, path)) continue;
@@ -107,11 +108,11 @@ namespace PlaylistFlac
             ct.ThrowIfCancellationRequested();
             if(preview!=null) {foreach(var move in moves)preview.Add(Path.GetFileName(move.Key)+" → keep "+Path.GetFileName(move.Value));result.ArchivedFiles=moves.Count;return result;}
             if (result.LinkedEntries == 0 && moves.Count == 0) return result;
-            string indexPath = SafePath(root, LibraryLayout.PathFor(root,"_index.csv")), playlistPath = SafePath(root, Path.Combine(root, "playlist.m3u8"));
+            string indexPath = LibraryLayout.MetadataPath(root, LibraryLayout.PathFor(root,"_index.csv")), playlistPath = LibraryLayout.MetadataPath(root, LibraryLayout.PathFor(root,"playlist.m3u8"));
             byte[] oldIndex = File.Exists(indexPath) ? File.ReadAllBytes(indexPath) : null;
             byte[] oldPlaylist = File.Exists(playlistPath) ? File.ReadAllBytes(playlistPath) : null;
             RecoveryFolders.Prepare(root);
-            string backup = SafePath(root,RecoveryFolders.NewPath(root,"duplicates"));
+            string backup = LibraryLayout.MetadataPath(root,RecoveryFolders.NewPath(root,"duplicates"));
             Directory.CreateDirectory(backup); File.SetAttributes(backup, File.GetAttributes(backup) | FileAttributes.Hidden);
             result.BackupDirectory = backup;
             if (oldIndex != null) File.WriteAllBytes(Path.Combine(backup, "_index.csv"), oldIndex);
@@ -122,7 +123,7 @@ namespace PlaylistFlac
             int n = 0;
             foreach (var move in moves)
             {
-                string to = SafePath(root, Path.Combine(backup, (++n).ToString("0000") + ".flac"));
+                string to = LibraryLayout.MetadataPath(root, Path.Combine(backup, (++n).ToString("0000") + ".flac"));
                 plan.Add(new KeyValuePair<string, string>(move.Key, to));
                 manifest.AppendLine(String.Join(",", new[] { move.Key, to, move.Value }.Select(IndexStore.Quote)));
             }
@@ -134,7 +135,7 @@ namespace PlaylistFlac
                 if (log != null) log("Consolidating " + result.LinkedEntries + " duplicate playlist entries; keeping " + moves.Count + " extra files in a recovery folder.");
                 foreach (var move in plan)
                 {
-                    ct.ThrowIfCancellationRequested(); SafePath(root, move.Key); SafePath(root, move.Value);
+                    ct.ThrowIfCancellationRequested(); SafePath(root, move.Key); LibraryLayout.MetadataPath(root, move.Value);
                     File.Move(move.Key, move.Value); archived.Add(move);
                 }
                 ct.ThrowIfCancellationRequested();
@@ -147,7 +148,7 @@ namespace PlaylistFlac
                 var errors = new List<Exception>();
                 for (int i = archived.Count - 1; i >= 0; i--)
                 {
-                    try { SafePath(root, archived[i].Value); SafePath(root, archived[i].Key); File.Move(archived[i].Value, archived[i].Key); }
+                    try { LibraryLayout.MetadataPath(root, archived[i].Value); SafePath(root, archived[i].Key); File.Move(archived[i].Value, archived[i].Key); }
                     catch (Exception ex) { errors.Add(ex); }
                 }
                 if(indexSaved) Restore(root, indexPath, oldIndex, errors);
@@ -162,7 +163,7 @@ namespace PlaylistFlac
         {
             try
             {
-                SafePath(root, path);
+                LibraryLayout.MetadataPath(root, path);
                 if (bytes == null) { if (File.Exists(path)) File.Delete(path); return; }
                 string staged = path + ".restore-" + Guid.NewGuid().ToString("N");
                 File.WriteAllBytes(staged, bytes);
@@ -191,3 +192,4 @@ namespace PlaylistFlac
         }
     }
 }
+

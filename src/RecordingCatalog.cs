@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -60,7 +60,7 @@ namespace PlaylistFlac
             {
                 ct.ThrowIfCancellationRequested();
                 if(!Valid(entry))continue;
-                string incoming=System.IO.Path.Combine(folder,".incoming");Directory.CreateDirectory(incoming);
+                string incoming=LibraryLayout.Work(folder,".incoming");Directory.CreateDirectory(incoming);
                 string target=System.IO.Path.Combine(incoming,"reuse-"+Guid.NewGuid().ToString("N")+".flac");
                 try
                 {

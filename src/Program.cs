@@ -110,13 +110,7 @@ namespace PlaylistFlac
         }
         public static string PlaylistFolder(string root, string name, string source)
         {
-            var bad = new HashSet<char>(Path.GetInvalidFileNameChars());
-            string clean = new string((name ?? "Playlist").Select(c => bad.Contains(c) || Char.IsControl(c) ? '_' : c).ToArray()).Trim(' ', '.');
-            if (clean.Length > 64) clean = clean.Substring(0, 64).Trim(' ', '.');
-            if (clean.Length == 0) clean = "Playlist";
-            string hash;
-            using (var sha = SHA256.Create()) hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(source ?? name ?? "Playlist"))).Replace("-", "").Substring(0, 8).ToLowerInvariant();
-            return Path.Combine(Path.GetFullPath(root), clean + " - " + hash);
+            return CollectionFolders.Resolve(root,name,source);
         }
     }
 
@@ -511,7 +505,7 @@ namespace PlaylistFlac
             open = ButtonAt(this, "Open folder", 690, 622, 110, false); open.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             browse.Click += delegate { using (var d = new FolderBrowserDialog { Description = "Choose where playlist folders should be saved", SelectedPath = destination.Text }) if (d.ShowDialog(this) == DialogResult.OK) { destination.Text = d.SelectedPath; SaveSettings(); RestoreStatus(); } };
             destination.Leave += delegate { if(!busy) RestoreStatus(); };
-            open.Click += delegate { try { var path = currentFolder ?? Path.GetFullPath(destination.Text); if(currentFolder!=null && Directory.Exists(Path.Combine(currentFolder,"playlist")))path=Path.Combine(currentFolder,"playlist"); Directory.CreateDirectory(path); Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); } catch (Exception ex) { ShowError(ex.Message); } };
+            open.Click += delegate { try { var path = currentFolder ?? Path.GetFullPath(destination.Text); Directory.CreateDirectory(path); Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); } catch (Exception ex) { ShowError(ex.Message); } };
             start = ButtonAt(this, "Download FLAC", 30, 670, 150, true); start.Enabled = false; start.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             stop = ButtonAt(this, "Stop", 190, 670, 75, false); stop.Enabled = false; stop.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             retry = ButtonAt(this, "Retry missing", 275, 670, 110, false); retry.Anchor = AnchorStyles.Bottom | AnchorStyles.Left; retry.Enabled = false;
@@ -688,7 +682,8 @@ namespace PlaylistFlac
             operation = new CancellationTokenSource(); failureReasons.Clear(); sourceDetails.Clear(); runProfile=Convert.ToString(quality.SelectedItem);runStrict=strict.Checked; lastTransferEvent=DateTime.MinValue; transferStatus.Text="Searching / waiting for peers"; SetBusy(true); SaveSettings();
             try
             {
-                currentFolder = AppState.PlaylistFolder(destination.Text.Trim(), playlist.Name, playlist.Source);
+                string outputBase=destination.Text.Trim();
+                currentFolder = await Task.Run(()=>CollectionFolders.Organize(outputBase,playlist,operation.Token));
                 engine = new SmartDownloader(); engine.Log += Log; engine.Progress += OnProgress;
                 status.Text = retryOnly ? "Retrying missing tracks..." : "Connecting to Soulseek...";
                 Log("One download per matching recording, including album reissues. Filenames use song titles; the artist is added only when titles clash.");
@@ -929,11 +924,13 @@ namespace PlaylistFlac
                     review.Controls.Add(description);review.Controls.Add(apply);
                     if(review.ShowDialog(this)!=DialogResult.OK){status.Text="Repairs cancelled; no changes applied";return;}
                 }
+                string outputBase=destination.Text.Trim();
+                currentFolder=await Task.Run(()=>CollectionFolders.Organize(outputBase,playlist,operation.Token));
                 engine=new SmartDownloader();engine.Log+=Log;
                 status.Text="Fixing covers and filenames...";
-                Log("Fixing saved music without starting Soulseek downloads. Extra duplicates and original artwork metadata remain recoverable.");
+                Log("Fixing saved music without starting Soulseek downloads. Temporary rollback files are cleared after a successful repair.");
                 var result=await Task.Run(()=>engine.FixLibraryAsync(playlist,currentFolder,Path.Combine(AppState.StateDirectory,"covers"),operation.Token));
-                Log("Library updated: "+result.Duplicates.ArchivedFiles+" duplicate copies moved to recovery; "+result.Names.Renamed+" filenames updated; "+result.Covers.Added+" covers added.");
+                Log("Library updated: "+result.Duplicates.ArchivedFiles+" duplicate copies removed; "+result.Names.Renamed+" filenames updated; "+result.Covers.Added+" covers added.");
                 if(result.Duplicates.BackupDirectory!=null)Log("Duplicate recovery folder: "+result.Duplicates.BackupDirectory);
                 status.Text="Library fixes finished";
             }

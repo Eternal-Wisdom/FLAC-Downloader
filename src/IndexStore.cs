@@ -49,7 +49,24 @@ namespace PlaylistFlac
         internal static void Save(string folder, Dictionary<string,SavedTrack> index, Playlist playlist, Action<string> committed = null)
         {
             LibraryLayout.Prepare(folder, System.Threading.CancellationToken.None);
+            foreach(var saved in index.Values)if(saved.State==1 || saved.State==3)saved.Path=LibraryLayout.Adopt(folder,saved.Path);
+            SaveIndex(folder,index);
+            if(committed!=null)committed("index");
             string root = Path.GetFullPath(folder).TrimEnd('\\') + "\\";
+            var m3u = new StringBuilder("#EXTM3U\r\n");
+            var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var track in playlist.Tracks)
+            {
+                SavedTrack row;
+                if (index.TryGetValue(Key(track),out row) && Done(row) && row.Path.StartsWith(root,StringComparison.OrdinalIgnoreCase) && listed.Add(Path.GetFullPath(row.Path)))
+                    m3u.AppendLine(Path.GetFullPath(row.Path));
+            }
+            AtomicWrite(LibraryLayout.PathFor(folder,"playlist.m3u8"),m3u.ToString());
+            if(committed!=null)committed("playlist");
+        }
+        internal static void SaveIndex(string folder, Dictionary<string,SavedTrack> index) {WriteIndex(LibraryLayout.PathFor(folder,"_index.csv"),folder,index);}
+        internal static void WriteIndex(string path,string folder, Dictionary<string,SavedTrack> index) {
+            string root=Path.GetFullPath(folder).TrimEnd('\\')+"\\";
             var text = new StringBuilder("filepath,artist,album,title,length,tracktype,state,failurereason\r\n");
             foreach (var row in index.Values)
             {
@@ -57,20 +74,9 @@ namespace PlaylistFlac
                 if (file.StartsWith(root, StringComparison.OrdinalIgnoreCase)) file = "./" + file.Substring(root.Length).Replace('\\','/');
                 text.AppendLine(String.Join(",", new[] { file, row.Track.Artist, row.Track.Album, row.Track.Title, Seconds(row.Track).ToString(CultureInfo.InvariantCulture), "0", row.State.ToString(), row.Reason.ToString() }.Select(Quote)));
             }
-            AtomicWrite(LibraryLayout.PathFor(folder,"_index.csv"),text.ToString());
-            if(committed!=null)committed("index");
-            var m3u = new StringBuilder("#EXTM3U\r\n");
-            var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var track in playlist.Tracks)
-            {
-                SavedTrack row;
-                if (index.TryGetValue(Key(track),out row) && Done(row) && row.Path.StartsWith(root,StringComparison.OrdinalIgnoreCase) && listed.Add(Path.GetFullPath(row.Path)))
-                    m3u.AppendLine(row.Path.Substring(root.Length).Replace('\\','/'));
-            }
-            AtomicWrite(Path.Combine(folder,"playlist.m3u8"),m3u.ToString());
-            if(committed!=null)committed("playlist");
+            AtomicWrite(path,text.ToString());
         }
-        private static string IndexDirectory(string path) {string directory=Path.GetDirectoryName(Path.GetFullPath(path));return Path.GetFileName(directory)==LibraryLayout.Name && Path.GetFileName(path)=="_index.csv" ? Path.GetDirectoryName(directory) : directory;}
+        private static string IndexDirectory(string path) { return LibraryLayout.MusicRoot(path); }
         internal static string Quote(string value) { return "\"" + (value ?? "").Replace("\"","\"\"") + "\""; }
         internal static void AtomicWrite(string path,string text)
         {

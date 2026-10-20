@@ -44,20 +44,19 @@ namespace PlaylistFlac
             ct.ThrowIfCancellationRequested();
             for(string cursor=root;cursor!=null;cursor=Path.GetDirectoryName(cursor))
                 if((File.GetAttributes(cursor)&FileAttributes.ReparsePoint)!=0)throw new IOException("Choose a folder without linked parent directories.");
-            string lockPath=Path.Combine(root,".download.lock");
-            if(File.Exists(lockPath) && (File.GetAttributes(lockPath)&FileAttributes.ReparsePoint)!=0)throw new IOException("The collection lock must not be a file link.");
-            using(var outputLock=new FileStream(lockPath,FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None))
+            using(var outputLock=LibraryLayout.Lock(root))
                 return CheckFolderLocked(root,ct,decoder);
         }
 
         private static FlacAuditResult CheckFolderLocked(string root,CancellationToken ct,string decoder)
         {
+            LibraryLayout.Prepare(root,ct);
             List<string> paths = FindFlacFiles(root, ct);
             paths.Sort(StringComparer.OrdinalIgnoreCase);
             FlacAuditResult result = new FlacAuditResult();
             LibraryLayout.Prepare(root,ct);
             result.ReportPath = LibraryLayout.PathFor(root,decoder==null ? "FLAC-check.csv" : "FLAC-audio-check.csv");
-            string temporaryPath = Path.Combine(root, ".FLAC-check-" + Guid.NewGuid().ToString("N") + ".tmp");
+            string temporaryPath = Path.Combine(LibraryLayout.Storage(root), ".FLAC-check-" + Guid.NewGuid().ToString("N") + ".tmp");
             try
             {
                 using (StreamWriter report = new StreamWriter(temporaryPath, false, new UTF8Encoding(true)))
@@ -161,6 +160,7 @@ namespace PlaylistFlac
 
         private static List<string> FindFlacFiles(string root, CancellationToken ct)
         {
+            LibraryLayout.Prepare(root,ct);
             List<string> paths = new List<string>();
             Stack<string> directories = new Stack<string>();
             directories.Push(root);
