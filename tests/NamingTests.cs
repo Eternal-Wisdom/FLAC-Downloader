@@ -67,6 +67,7 @@ namespace PlaylistFlac
             string playlist = File.ReadAllText(LibraryLayout.PathFor(folder,"playlist.m3u8"));
             Assert(index.Contains("./Same (First).flac") && playlist.Contains("./album/夜の歌 (feat. Guest).flac"), "Both stored path formats must be updated.");
             Assert(Directory.Exists(result.BackupDirectory) && File.Exists(Path.Combine(result.BackupDirectory, "rename-map.csv")), "Original metadata and recovery mapping must be preserved.");
+            Assert(Directory.GetFiles(folder, "*.naming-*", SearchOption.AllDirectories).Length == 0, "Successful replacement must not leave adjacent staging files.");
             RenameResult again = LibraryNaming.RenameCompleted(folder, p, CancellationToken.None, null);
             Assert(again.Renamed == 0 && again.Unchanged == 5 && File.ReadAllText(LibraryLayout.PathFor(folder,"_index.csv")) == index, "A repeated invocation must not rename or rewrite again.");
         }
@@ -243,6 +244,7 @@ namespace PlaylistFlac
             finally { if (locked != null) locked.Dispose(); }
             Assert(failed && File.Exists(Path.Combine(folder, "Artist - Title.flac")) && !File.Exists(Path.Combine(folder, "Title.flac")), "A metadata commit failure must roll filenames back.");
             Assert(File.ReadAllText(LibraryLayout.PathFor(folder,"_index.csv")) == index, "An already committed index must be restored on playlist failure.");
+            Assert(Directory.GetFiles(folder, "*.naming-*", SearchOption.AllDirectories).Length == 0, "Failed replacement and rollback must clear adjacent staging files.");
         }
 
         private static void CheckCancel(string folder)
