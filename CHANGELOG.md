@@ -2,6 +2,7 @@
 
 ## 1.19.1 (2026-10-19)
 
+- Stage filename metadata replacements beside their destination so atomic commits and rollback work when music and private app state are on different drives.
 - Automatically clear staging, search maps, raw session indexes and repair backups after a settled download or successful library repair. Keep canonical history, music, reports and saved retries. Preserve recovery data when work stops or fails.
 - Flatten older unindexed FLAC files into the collection root without overwriting or deleting them. Update repair wording to explain permanent duplicate cleanup.
 
