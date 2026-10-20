@@ -10,7 +10,7 @@ For the optional Web API connection only, use the 32-character **Client ID of a 
 
 Use Balanced for general selection or Fast FLAC to accept an earlier matching source. Raising simultaneous jobs permits more queued work but cannot force slow peers to upload faster. Stop cancels active work and pauses automatic retry processing. Saved retries can be reviewed, paused, resumed, or removed.
 
-Open opens finalized music. Fix library adds missing covers, consolidates confirmed duplicates, and resolves title collisions. Recovery data is preserved. Check files inspects FLAC headers and writes a report under the collection's `.playlist-flac/` directory.
+Open opens finalized music. Fix library adds missing covers, consolidates confirmed duplicates, and resolves title collisions. Temporary staging and repair files are cleared after successful completion. Check files inspects FLAC headers and writes a report in the app's private `state/collections/` storage.
 
 ## Track and source details
 
@@ -37,12 +37,14 @@ Right-click the list and choose **Album availability** to see imported songs gro
 
 ## Previewing repairs
 
-**Fix library** first displays a read-only plan of duplicate copies to archive and proposed filenames. Close the preview to cancel, or choose Apply repairs. It lists names before duplicate consolidation, so consolidation can reduce that list. The app rechecks files on application. Artwork availability is checked during repair; the preview does not promise a cover for every file. Existing recovery maps and copies remain available; there is no new one-click whole-repair undo.
+**Fix library** first displays a read-only plan of duplicate copies to remove and proposed filenames. Close the preview to cancel, or choose Apply repairs. It lists names before duplicate consolidation, so consolidation can reduce that list. The app rechecks files on application. Artwork availability is checked during repair; the preview does not promise a cover for every file. Temporary rollback data protects in-progress repairs and failures. Successful completion clears it, so duplicate removal has no app undo.
 
 ## Full audio integrity check
 
 **Check files** offers Quick header check or Full audio check. Full audio check asks for the official FLAC project's `flac.exe`, available from [Xiph's FLAC releases](https://github.com/xiph/flac/releases). Extract the Windows tools and select the Win64 executable. No decoder is bundled or automatically fetched.
 
-The full check runs one decoder process at a time in test mode, treats decoder warnings as review items, supports Stop, and limits each file to ten minutes. It never writes decoded audio. Results go to `.playlist-flac/FLAC-audio-check.csv`; the quick report remains `FLAC-check.csv`. It can detect corrupt/truncated frames that a header scan misses, but cannot prove lossless source provenance. Full checks read the entire audio file, so they can take much longer than header checks.
+The full check runs one decoder process at a time in test mode, treats decoder warnings as review items, supports Stop, and limits each file to ten minutes. It never writes decoded audio. Results go to the collection’s private `FLAC-audio-check.csv` report; the quick report remains `FLAC-check.csv`. It can detect corrupt/truncated frames that a header scan misses, but cannot prove lossless source provenance. Full checks read the entire audio file, so they can take much longer than header checks.
 
 Uncheck **Follow new messages** in Activity to hold the displayed text while reading. Logging continues; checking it again catches up to the latest 160 retained messages.
+
+Music is saved directly in named playlist/album folders. Playlists stay unnumbered; albums use numbered filenames in the imported order. Keep the app’s `state/` directory to preserve download history and settings. See [folders](FOLDERS.md).

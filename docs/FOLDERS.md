@@ -1,19 +1,25 @@
 # Folders and recovery
 
-## App folder
+## Music folders
 
-`state/` contains private settings, cached artwork, cached imported tracklists in `imports/`, retry lists, and the recording catalog. It is created on first use and never belongs in Git or a release ZIP. Cached public album and pasted imports preserve their source identity when the app reopens. Keep developer-created app-update rollback copies outside the installation; do not mix them with music or include them in distribution archives. Developer source and historical test reports belong in the repository, not beside the runnable app.
+The selected destination contains named collection folders with finalized FLAC files directly inside them. Playlists keep title filenames without numbering. Spotify albums use `01 - Title.flac`, `02 - Title.flac`, and so on in the imported album sequence; numbering continues across discs. Missing tracks retain their positions instead of shifting the remaining tracks. Windows Explorer should be sorted by Name to display that sequence. This is album track order, not release-date sorting.
 
-Temporary engine configurations live under the current Windows user's local application-data folder, separate from music. Normal completion removes them. Startup and the next engine run remove abandoned configs only while holding the shared session lease; linked entries are skipped. Windows job containment normally ends the engine when the app is force-closed, but assignment can fail and is reported. This is not secure erasure or a guarantee that an old uncontained process is gone.
+Artists are added when titles clash. A different source with an already reserved collection name gets a readable suffix such as `Album (2)`. Existing unrelated folders are never merged or overwritten.
 
-## Collection folder
+## App state
 
-`playlist/` contains finalized songs and `playlist.m3u8` references them. The hidden `.playlist-flac/` folder stores `_index.csv`, `playlist.csv`, `Covers.csv`, `FLAC-check.csv`, and optional `FLAC-audio-check.csv`. New active-session indexes also live there. The index is essential: do not delete it to tidy the folder.
+The portable app creates `state/` for private settings, imported tracklists, artwork caches, retries, and the recording catalog. `state/collections/<id>/` stores each collection's index, original tracklist, reports, private playback list, search/recovery maps, staging audio, and lock. `music-root.txt` identifies its music folder. The opaque ID is internal and does not appear in the music destination.
 
-Legacy metadata is moved only during an explicit download, library repair, or check operation. Read-only library status can still read old layouts. Migration preserves bytes and interprets canonical index paths relative to the collection root. If both old and new metadata exist, the app stops and preserves both instead of choosing one silently.
+Playback lists stored here use absolute music paths so they remain playable outside the collection. Recovery copies live in `state/collections/<id>/recovery/`. They protect in-progress work and failed operations. After a download job or library repair completes successfully, staging, search maps, raw session indexes and all repair backups are cleared automatically. This also applies to settled jobs with unavailable or review tracks; saved retry history remains. Duplicate copies removed by a completed repair cannot be restored from app backups. Keep the entire `state/` directory when updating or moving the portable app. Sharing it can expose credentials, song lists, local paths, and peers from an interrupted session; never put it in Git or release archives.
 
-`.search/` maps and `.incoming/` temporary files can refer to absolute locations, so older directories stay in place. Recovery files live in `.playlist-flac-recovery/`. Older `.artwork-backup-*` and `.duplicates-backup-*` directories may contain absolute paths; keep them where they were created. Naming recovery can be safely grouped by the app.
+Temporary engine sign-in configurations remain under the Windows user's local application-data folder. Normal completion removes them. Startup and the next engine run remove abandoned configurations only while holding the session lease. Job containment is best effort and cannot guarantee an old uncontained process is gone.
 
-Windows may show these folders when Show hidden items is enabled. They are operational data, not duplicate music to delete. Do not move recovery archives without also updating and testing their manifests. Artwork recovery can be invoked with `FLAC-Downloader.exe --restore-artwork "path-to-recovery-directory"`.
+## Older collections
 
-Album-folder searches use private `.search/` bookkeeping. Direct peer links exist in the active input file while the engine runs; normal completion or the next library recovery removes that file. Recovery maps contain imported tracks and local staging paths. Do not share private collection state as diagnostics.
+Download and Fix library discover the old `Collection - hash` path and migrate it to a readable collection name under a lock. Canonical music paths become relative before the directory is renamed. A saved relocation journal and stable internal identity preserve restart and retry behavior. The redundant `playlist/` directory is removed only once empty; indexed completed songs are renamed into the collection root. Unindexed FLAC files directly inside the old `playlist/` directory are moved into the collection root with their filenames preserved and safe collision suffixes. Other unrelated files are preserved for review.
+
+Known metadata, staging, and recovery folders move into app state. Linked paths and conflicting metadata stop migration rather than overwrite data. Interrupted moves retain their remaining source files and can be resumed. Old duplicate maps retain their original copy when archive paths are relocated. Audio is moved without transcoding. Album order comes from the imported tracklist, not download completion order.
+
+Recovery files are available only while a stopped or failed operation still needs them. When available, artwork metadata recovery uses `FLAC-Downloader.exe --restore-artwork "path-to-manifest.json"`. Original index/playback copies and filename maps accompany recovery archives. Later filename or folder changes may require following those maps when restoring historical data. Recovery is not a one-click undo of a complete maintenance operation.
+
+Do not manually delete bookkeeping to tidy music, or copy the music into a differently named destination while expecting automatic resume. Use the app's own collection organization and preserve its private state.
