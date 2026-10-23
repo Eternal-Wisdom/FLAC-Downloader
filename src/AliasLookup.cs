@@ -32,7 +32,6 @@ namespace PlaylistFlac
         public AliasLookup(string cacheDirectory) : this(cacheDirectory,new HttpClientHandler { AllowAutoRedirect=false },null) { }
         internal AliasLookup(string cacheDirectory,HttpMessageHandler handler,Func<CancellationToken,Task> testPacing)
         {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             http=new HttpClient(handler);
             this.testPacing=testPacing;
             cache=cacheDirectory; Directory.CreateDirectory(cache);

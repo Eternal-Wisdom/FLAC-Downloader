@@ -56,6 +56,11 @@ namespace PlaylistFlac
                 var text=new TextBox {Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Dock=DockStyle.Fill,BackColor=Surface,ForeColor=Color.White,Text=report,AccessibleName="Privacy-safe diagnostics preview"};
                 var footer=new FlowLayoutPanel {Dock=DockStyle.Bottom,Height=45,FlowDirection=FlowDirection.RightToLeft};
                 var close=new Button {Text="Close",AutoSize=true,DialogResult=DialogResult.Cancel};var copy=new Button {Text="Copy diagnostics",AutoSize=true};copy.Click+=delegate {CopyText(report);};footer.Controls.Add(close);footer.Controls.Add(copy);
+                var save=new Button {Text="Save diagnostics...",AutoSize=true,AccessibleName="Save privacy-safe diagnostics to a text file"};
+                save.Click+=delegate {
+                    using(var dialog=new SaveFileDialog {Title="Save privacy-safe diagnostics",Filter="Text files (*.txt)|*.txt",FileName="flac-downloader-diagnostics.txt",OverwritePrompt=true})
+                        if(dialog.ShowDialog(window)==DialogResult.OK)try {IndexStore.AtomicWrite(dialog.FileName,report);}catch(Exception ex) {if(!(ex is IOException) && !(ex is UnauthorizedAccessException))throw;MessageBox.Show(window,"Diagnostics could not be saved. Choose a writable folder.","FLAC-Downloader",MessageBoxButtons.OK,MessageBoxIcon.Error);}
+                };footer.Controls.Add(save);
                 window.Controls.Add(text);window.Controls.Add(footer);window.CancelButton=close;window.ShowDialog(this);
             }
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -48,13 +48,14 @@ namespace PlaylistFlac
             try { root = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
             catch (Exception ex) { if (!Recoverable(ex)) throw; return new LibrarySnapshot(statuses, playlist); }
 
+            var files = new SnapshotFileCheck(root);
             Dictionary<string, SavedTrack> canonical = ReadIndex(LibraryLayout.PathFor(root,"_index.csv"));
             foreach (Track track in playlist.Tracks)
             {
                 string key = IndexStore.Key(track); SavedTrack saved;
-                if (canonical.TryGetValue(key, out saved)) statuses[key] = Label(root, saved);
+                if (canonical.TryGetValue(key, out saved)) statuses[key] = Label(files, saved);
             }
-            if (includeActive) MergeActive(root, statuses);
+            if (includeActive) MergeActive(root, statuses, files);
             var recordings=RecordingGroups.Build(playlist.Tracks);
             foreach(var group in recordings.Groups)
             {
@@ -68,7 +69,7 @@ namespace PlaylistFlac
             return new LibrarySnapshot(statuses, playlist);
         }
 
-        private static void MergeActive(string root, Dictionary<string, string> statuses)
+        private static void MergeActive(string root, Dictionary<string, string> statuses, SnapshotFileCheck files)
         {
             string mapPath = Path.Combine(LibraryLayout.PathFor(root,".search"),"active-map.json");
             if (!File.Exists(mapPath)) return;
@@ -92,7 +93,7 @@ namespace PlaylistFlac
                     if (!active.TryGetValue(IndexStore.Key(job.Query), out saved)) continue;
                     // A raw success is useful only while its completed file is present.
                     // A malformed or interrupted raw write must not clear canonical failure history.
-                    string label = Label(root, saved);
+                    string label = Label(files, saved);
                     if (label == "Downloaded" || label == "Failed") statuses[key] = label;
                 }
             }
@@ -105,31 +106,50 @@ namespace PlaylistFlac
             catch (Exception ex) { if (!Recoverable(ex)) throw; return new Dictionary<string, SavedTrack>(); }
         }
 
-        private static string Label(string root, SavedTrack saved)
+        private static string Label(SnapshotFileCheck files, SavedTrack saved)
         {
             if (saved == null) return "Ready";
             if (saved.State == 1 || saved.State == 3)
-                return ExistingContainedFile(root, saved.Path) ? "Downloaded" : "Ready";
+                return files.Exists(saved.Path) ? "Downloaded" : "Ready";
             return saved.State == 2 || saved.State == 4 ? "Failed" : "Ready";
         }
 
-        private static bool ExistingContainedFile(string root, string file)
+        // Cache directory metadata only for this read. Each file is still checked,
+        // and a new snapshot always observes deletion, replacement and link changes.
+        internal sealed class SnapshotFileCheck
         {
-            if (String.IsNullOrEmpty(file)) return false;
-            try
+            private readonly string root;
+            private readonly Func<string,FileAttributes> attributes;
+            private readonly Dictionary<string,bool> directories = new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
+            internal SnapshotFileCheck(string root, Func<string,FileAttributes> attributes = null)
+            { this.root=root; this.attributes=attributes ?? File.GetAttributes; }
+
+            internal bool Exists(string file)
             {
-                string path = Path.GetFullPath(file);
-                if (!path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(path)) return false;
-                string cursor = path;
-                while (cursor != null && cursor.Length >= root.Length)
+                if(String.IsNullOrEmpty(file))return false;
+                try
                 {
-                    if ((File.GetAttributes(cursor) & FileAttributes.ReparsePoint) != 0) return false;
-                    if (String.Equals(cursor, root, StringComparison.OrdinalIgnoreCase)) break;
-                    cursor = Path.GetDirectoryName(cursor);
+                    string path=Path.GetFullPath(file);
+                    if(!path.StartsWith(root+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) || !File.Exists(path))return false;
+                    if((attributes(path)&(FileAttributes.ReparsePoint|FileAttributes.Directory))!=0)return false;
+                    string cursor=Path.GetDirectoryName(path);
+                    while(cursor!=null && cursor.Length>=root.Length)
+                    {
+                        bool safe;
+                        if(!directories.TryGetValue(cursor,out safe))
+                        {
+                            var value=attributes(cursor);
+                            safe=(value&FileAttributes.ReparsePoint)==0 && (value&FileAttributes.Directory)!=0;
+                            directories.Add(cursor,safe);
+                        }
+                        if(!safe)return false;
+                        if(String.Equals(cursor,root,StringComparison.OrdinalIgnoreCase))return true;
+                        cursor=Path.GetDirectoryName(cursor);
+                    }
+                    return false;
                 }
-                return true;
+                catch(Exception ex) {if(!Recoverable(ex))throw;return false;}
             }
-            catch (Exception ex) { if (!Recoverable(ex)) throw; return false; }
         }
 
         private static bool Recoverable(Exception ex)
