@@ -1,4 +1,22 @@
-# Changelog
+﻿# Changelog
+
+## 1.19.4 — 2026-10-21
+
+- Reduce repeated folder metadata reads while restoring downloaded-song status. Each scan reuses parent-folder checks; file existence is always checked and no cache survives into the next scan.
+- Preserve containment and symbolic-link rejection; add regression coverage for deletion and changed parent links.
+
+
+## 1.19.3 (local, 2026-10-21)
+
+- Bound CSV imports to 32 MiB on disk, 16 Mi characters, 50,000 data rows, 256 columns and 65,536 characters per field. Read files in bounded chunks and reject oversize input before building a partial queue. Existing download-index parsing keeps its independent behavior.
+- Declare the .NET Framework 4.8 target explicitly and let Windows select HTTPS protocols instead of forcing TLS 1.2 in the app's network helpers. Certificate validation remains enabled.
+- Save the allowlisted diagnostics preview to a local text file with atomic replacement. No logs, music names, accounts or credentials are added to the report, and saving does not upload anything.
+- Record the supplied research proposal review and validation limits. No new dependencies or engine changes.
+
+## 1.19.2 (local, 2026-10-21)
+
+- Check free space, path safety and path length for temporary download storage as well as the music folder before starting a batch. Identify which location needs attention, and check that private collection storage is writable before creating the music folder or migrating files.
+- Use the flat song layout when checking destination path length, avoiding warnings based on the removed nested playlist directory.
 
 ## 1.19.1 (2026-10-19)
 
