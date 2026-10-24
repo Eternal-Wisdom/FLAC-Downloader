@@ -18,7 +18,6 @@ namespace PlaylistFlac
         [STAThread]
         private static void Main(string[] args)
         {
-            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             if (args.Length == 2 && args[0] == "--restore-artwork")

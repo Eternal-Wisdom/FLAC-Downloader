@@ -32,7 +32,9 @@ namespace PlaylistFlac
             try
             {
                 string outputFolder=Path.GetFullPath(output);
-                foreach(string warning in DestinationPreflight.Check(outputFolder))Say("Destination check: "+warning);
+                string stagingProbe=Path.Combine(LibraryLayout.Work(outputFolder,".incoming"),new string('0',32));
+                foreach(string warning in DestinationPreflight.CheckStorage(outputFolder,stagingProbe))Say("Storage check: "+warning);
+                EnvironmentGuard.EnsureWritableState(LibraryLayout.Storage(outputFolder));
                 Directory.CreateDirectory(outputFolder);
                 EnvironmentGuard.EnsureWritableState(outputFolder);
                 // Keep this file between runs. Deleting it after closing would race with

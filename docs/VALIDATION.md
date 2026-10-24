@@ -1,5 +1,19 @@
 # Release validation
 
+## Local 1.19.4 scan optimization (2026-10-21)
+
+All 41 regression suites passed, with zero failures or skips. The synthetic 1,000-song library scan needs 1,002 attribute reads instead of 3,000, with every file still checked for existence. Regression cases cover deletion during a scan, parent-link changes between scans, directory rejection and path containment. This is an operation-count improvement, not a measured peer-transfer speed increase. No private library or credentials are used, and no fresh live transfer or authenticated Spotify API test is claimed.
+
+## Local 1.19.3 research follow-up (2026-10-21)
+
+All 41 suites passed with zero failures or skips. Added cases cover oversized files/text/fields/columns/rows, exact 50,000-track and 65,536-character boundaries, unchanged rejected input, declared .NET 4.8 targeting, retained OS TLS selection after importer construction, the diagnostics Save action in a real WinForms modal preview, and atomic report text persistence. The existing privacy allowlist, crash recovery, offline real-engine, album, artwork and folder suites also passed.
+
+Fresh live public-album imports returned the expected 18, 9 and 36 tracks, with required metadata and matching CSV round trips, in a .NET 4.8-targeted process using the updated importer. These were unauthenticated public-metadata tests. No fresh Soulseek peer transfer/speed benchmark, authenticated Spotify API import, or native Windows save-picker click-through was performed. No private music, settings or credentials were used. The build is local and unpublished.
+
+## Local 1.19.2 storage checks (2026-10-21)
+
+All 40 regression suites passed with zero failures or skips. New cases simulate a full temporary-storage drive alongside a healthy music drive, verify the correct location is named in errors and low-space warnings, and confirm inspection creates no folders. A pinned-engine offline synthetic album workflow fetched only the missing track, preserved the preexisting audio hash, cleared staging/search/recovery files, and launched no engine on restart. No private music or credentials were used. This is not a live Soulseek transfer test or speed benchmark; authenticated Spotify API and native click-through were not retested. The update is local and unpublished.
+
 ## Cross-drive naming correction (2026-10-20)
 
 The initial GitHub Windows run caught a naming failure when legacy metadata and private recovery storage were on different volumes. Atomic replacement now stages beside the destination metadata, including rollback; adjacent staging is removed after success or failure. The Naming suite checks successful replacement and locked-playlist rollback without leftover staging. All 40 local suites passed again after this correction. GitHub Windows check results are recorded on [release PR 12](https://github.com/Eternal-Wisdom/FLAC-Downloader/pull/12); publication requires passing checks on the corrected source.

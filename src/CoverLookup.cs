@@ -59,7 +59,6 @@ namespace PlaylistFlac
             Directory.CreateDirectory(this.cacheDirectory);
             testPacing = pacing;
             utcNow = clock;
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("FLAC-Downloader/1.14.1 (https://github.com/Eternal-Wisdom/FLAC-Downloader)");
         }

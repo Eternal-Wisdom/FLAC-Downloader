@@ -17,6 +17,15 @@ internal static class ImprovementTests
         {
             Check(DestinationPreflight.Check(Path.Combine(root,"new","music"),2L*1024*1024*1024).Count==0,"normal destination preflight");
             Check(!Directory.Exists(Path.Combine(root,"new")),"preflight inspection is read-only");
+            string staging=Path.Combine(root,"temporary","session");
+            bool stagingBlocked=false;
+            try{DestinationPreflight.CheckStorage(Path.Combine(root,"new","music"),staging,p=>p==staging?63L*1024*1024:Int64.MaxValue);}
+            catch(IOException ex){stagingBlocked=ex.Message.StartsWith("Temporary download storage:");}
+            Check(stagingBlocked,"full staging storage must block a batch even when the music drive has space");
+            Check(!Directory.Exists(Path.Combine(root,"temporary")),"storage preflight must not create staging folders");
+            var storageWarnings=DestinationPreflight.CheckStorage(root,staging,p=>p==staging?512L*1024*1024:Int64.MaxValue);
+            Check(storageWarnings.Count==1 && storageWarnings[0].StartsWith("Temporary download storage:") && storageWarnings[0].Contains("1 GiB"),"staging warning must identify the storage that needs space");
+            Check(DestinationPreflight.CheckStorage(root,staging,p=>Int64.MaxValue).Count==0,"healthy storage should not warn");
             Reject(()=>DestinationPreflight.Check(root,63L*1024*1024),"low free space was not blocked");
             Check(DestinationPreflight.Check(root,512L*1024*1024).Any(w=>w.Contains("1 GiB")),"low free space warning");
             Check(DestinationPreflight.Check(Path.Combine(root,"OneDrive","songs"),2L*1024*1024*1024).Any(w=>w.Contains("cloud")),"synced destination warning");

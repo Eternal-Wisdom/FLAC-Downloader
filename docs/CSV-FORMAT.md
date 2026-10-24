@@ -4,6 +4,8 @@ Use **Import > Import CSV file** or **Import > Paste songs or CSV**. Imports onl
 
 ## CSV
 
+Imports allow up to 32 MiB per file, 16 Mi characters of decoded text, 50,000 data rows (blank rows also count toward the row budget), 256 columns and 65,536 characters per field. Split larger exports into smaller tracklists. Oversized input is rejected before replacing the current queue; the source file is left unchanged.
+
 Use UTF-8 text with a header row and at least `title` and `artist` columns. Exportify's `Track Name` and `Artist Name(s)` headers also work. Comma, semicolon and tab separators are detected. Quote fields containing separators, quotes or line breaks; inside a quoted field, write a quote twice.
 
 ```csv

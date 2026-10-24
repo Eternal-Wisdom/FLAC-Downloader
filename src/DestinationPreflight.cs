@@ -6,12 +6,27 @@ namespace PlaylistFlac
 {
     internal static class DestinationPreflight
     {
+        internal static List<string> CheckStorage(string music, string staging, Func<string,long?> freeSpace = null)
+        {
+            var warnings = new List<string>();
+            foreach(var location in new[]{new[]{"Music folder",music},new[]{"Temporary download storage",staging}})
+            {
+                try
+                {
+                    foreach(string warning in Check(location[1],freeSpace==null ? (long?)null : freeSpace(location[1])))
+                        warnings.Add(location[0]+": "+warning);
+                }
+                catch(IOException ex) {throw new IOException(location[0]+": "+ex.Message,ex);}
+            }
+            return warnings;
+        }
+
         internal static List<string> Check(string folder, long? availableBytes = null)
         {
             string full = Path.GetFullPath(folder);
             if (full.StartsWith(@"\\?\", StringComparison.Ordinal) || full.StartsWith(@"\\.\", StringComparison.Ordinal))
                 throw new IOException("Choose a normal music folder rather than a Windows device path.");
-            if (Path.Combine(full, "playlist", "Song.flac").Length >= 260)
+            if (Path.Combine(full, "Song.flac").Length >= 260)
                 throw new IOException("The destination path is too long. Choose a shorter music folder before downloading.");
             for (string current=full; current!=null; current=Path.GetDirectoryName(current))
             {
@@ -20,7 +35,7 @@ namespace PlaylistFlac
                     throw new IOException("Choose a destination without linked folders. This protects music and recovery files.");
             }
             var warnings = new List<string>();
-            if (Path.Combine(full,"playlist",new string('x',150)+".flac").Length >= 260)
+            if (Path.Combine(full,new string('x',150)+".flac").Length >= 260)
                 warnings.Add("Long song names may exceed Windows path limits here. A shorter destination folder is recommended.");
             string[] parts=full.Split(new[]{'\\','/'},StringSplitOptions.RemoveEmptyEntries);
             foreach(string part in parts)

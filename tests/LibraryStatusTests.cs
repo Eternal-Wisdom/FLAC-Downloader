@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -12,13 +12,35 @@ namespace PlaylistFlac
         {
             string root = Path.Combine(Path.GetTempPath(), "PlaylistFlac-StatusTests-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
-            try { CheckSnapshots(root); CheckRecordingVersions(Path.Combine(root,"versions")); CheckAmbiguousActiveQuery(Path.Combine(root,"ambiguous-query")); }
+            try { CheckScanCache(Path.Combine(root,"scan-cache")); CheckSnapshots(root); CheckRecordingVersions(Path.Combine(root,"versions")); CheckAmbiguousActiveQuery(Path.Combine(root,"ambiguous-query")); }
             finally
             {
                 string absolute = Path.GetFullPath(root), temp = Path.GetFullPath(Path.GetTempPath()).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
                 if (!absolute.StartsWith(temp, StringComparison.OrdinalIgnoreCase) || !Path.GetFileName(absolute).StartsWith("PlaylistFlac-StatusTests-", StringComparison.Ordinal)) throw new Exception("Unsafe status test cleanup path.");
                 Directory.Delete(absolute, true);
             }
+        }
+
+        private static void CheckScanCache(string root)
+        {
+            Directory.CreateDirectory(root);
+            string nested=Path.Combine(root,"disc");Directory.CreateDirectory(nested);
+            int reads=0;
+            var scan=new LibraryStatus.SnapshotFileCheck(root,p=>{reads++;return File.GetAttributes(p);});
+            for(int i=0;i<1000;i++)
+            {
+                string file=Path.Combine(nested,i+".flac");File.WriteAllBytes(file,new byte[0]);
+                Assert(scan.Exists(file),"A valid file was excluded during the cached scan.");
+            }
+            Assert(reads==1002,"Parent attributes must be read once per snapshot, not once per song.");
+            string first=Path.Combine(nested,"0.flac");File.Delete(first);
+            Assert(!scan.Exists(first),"File existence must not be cached.");
+            File.WriteAllBytes(first,new byte[0]);
+            var linked=new LibraryStatus.SnapshotFileCheck(root,p=>p==nested ? FileAttributes.Directory|FileAttributes.ReparsePoint : File.GetAttributes(p));
+            Assert(!linked.Exists(first),"A new scan must reject a parent replaced with a link.");
+            Assert(!scan.Exists(Path.Combine(root,"..","outside.flac")),"Out-of-root paths must remain rejected.");
+            Assert(!scan.Exists(nested),"A directory cannot satisfy a completed song.");
+            Console.WriteLine("Library scan: 1,000 songs; attribute reads reduced from 3,000 to "+reads+" (same file checks).");
         }
 
         private static void CheckRecordingVersions(string root)

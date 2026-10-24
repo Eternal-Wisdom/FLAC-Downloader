@@ -44,18 +44,31 @@ namespace PlaylistFlac
 
     public static class CsvPlaylist
     {
+        internal const int MaxCharacters=16*1024*1024;
+        internal const long MaxFileBytes=32L*1024*1024;
+        internal const int MaxTracks=50000;
         public static Playlist Read(string path)
         {
             using (var reader = new StreamReader(path, Encoding.UTF8, true))
-                return Parse(reader.ReadToEnd(), Path.GetFileNameWithoutExtension(path), path);
+            {
+                if(reader.BaseStream.Length>MaxFileBytes)throw new FormatException("The CSV exceeds 32 MiB. Split it into smaller tracklists before importing.");
+                var text=new StringBuilder();var buffer=new char[8192];int count;
+                while((count=reader.Read(buffer,0,buffer.Length))>0)
+                {
+                    if(text.Length>MaxCharacters-count)throw new FormatException("The CSV contains too much text. Split it into smaller tracklists before importing.");
+                    text.Append(buffer,0,count);
+                }
+                return Parse(text.ToString(), Path.GetFileNameWithoutExtension(path), path);
+            }
         }
 
         public static Playlist Parse(string csv, string name, string source)
         {
             if (String.IsNullOrWhiteSpace(csv)) throw new FormatException("The playlist CSV is empty.");
+            if(csv.Length>MaxCharacters)throw new FormatException("The CSV contains too much text. Split it into smaller tracklists before importing.");
             csv = csv.TrimStart('\uFEFF');
             char delimiter = DetectDelimiter(csv);
-            var rows = ParseRows(csv, delimiter);
+            var rows = ParseRows(csv, delimiter,MaxTracks+1,256,65536);
             if (rows.Count == 0) throw new FormatException("The playlist CSV is empty.");
             var headers = rows[0].Select(NormalizeHeader).ToList();
             int title = Column(headers, "title", "trackname", "tracktitle", "songname", "songtitle", "track", "name");
@@ -211,12 +224,14 @@ namespace PlaylistFlac
             }
             return tab > comma && tab > semicolon ? '\t' : semicolon > comma ? ';' : ',';
         }
-        internal static List<List<string>> ParseRows(string csv, char delimiter)
+        internal static List<List<string>> ParseRows(string csv, char delimiter,int maxRows=Int32.MaxValue,int maxColumns=Int32.MaxValue,int maxField=Int32.MaxValue)
         {
             var rows = new List<List<string>>(); var row = new List<string>(); var field = new StringBuilder();
             bool quoted = false, closed = false;
             for (int i = 0; i < csv.Length; i++)
             {
+                if(rows.Count>=maxRows || row.Count>=maxColumns || field.Length>maxField)
+                    throw new FormatException("The CSV exceeds import limits (50,000 rows, 256 columns or 65,536 characters per field). Split it into smaller tracklists.");
                 char ch = csv[i];
                 if (quoted)
                 {
@@ -245,7 +260,10 @@ namespace PlaylistFlac
                 }
             }
             if (quoted) throw new FormatException("Malformed CSV: a quoted field is not closed.");
-            if (field.Length > 0 || row.Count > 0 || closed) { row.Add(field.ToString()); rows.Add(row); }
+            if (field.Length > 0 || row.Count > 0 || closed) {
+                if(rows.Count>=maxRows || row.Count>=maxColumns || field.Length>maxField)throw new FormatException("The CSV exceeds import limits. Split it into smaller tracklists.");
+                row.Add(field.ToString()); rows.Add(row);
+            }
             return rows;
         }
     }
@@ -269,7 +287,6 @@ namespace PlaylistFlac
         public SpotifyImporter() : this(new HttpClientHandler { AllowAutoRedirect = false }) { }
         internal SpotifyImporter(HttpMessageHandler handler)
         {
-            ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072;
             http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(45) };
         }
 
