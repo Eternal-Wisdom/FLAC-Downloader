@@ -4,6 +4,8 @@ Need a Soulseek login? Start with the [account setup guide](SOULSEEK-ACCOUNT.md)
 
 Extract the complete portable ZIP into a writable folder. Open FLAC-Downloader.exe, enter your own Soulseek credentials, import a tracklist, select where music goes, and click Download FLAC. The app does not download just because it is opened.
 
+Keep free space on both the app drive and the music drive: temporary transfers are stored under the app's `state/` folder. Startup storage messages identify which location needs attention. See [storage troubleshooting](TROUBLESHOOTING.md#temporary-download-storage-needs-space).
+
 CSV requires artist and title columns; album, duration, ISRC, and cover URL metadata improve matching, deduplication, and artwork. Use **Import** for a CSV file or pasted songs; see [tracklist formats](CSV-FORMAT.md). Public Spotify album links can load without a Client ID or sign-in. Paste the album URL and choose **Load link**. Public page formats may change; review the track count and use CSV if Spotify supplies an incomplete or unavailable page. Playlist links still require the optional developer connection.
 
 For the optional Web API connection only, use the 32-character **Client ID of a Spotify Web API app**, with redirect URI `http://127.0.0.1:48723/callback`; **Copy URI** is available in setup help. A Spotify Soloist API key (beginning with `spak_`) is for the separate Soloist playback client and cannot replace that client ID. Do not paste a client secret or Soloist key. Invalid client-ID values are not saved in settings. See [Spotify Web API app setup](https://developer.spotify.com/documentation/web-api/concepts/apps) and [Soloist credentials](https://developer.spotify.com/documentation/soloist/reference/command-line).

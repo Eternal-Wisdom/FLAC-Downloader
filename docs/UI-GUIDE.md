@@ -1,6 +1,8 @@
 # Using the main window
 
-Current guide for **1.19.1**. Made using AI (OpenAI Codex).
+Current guide for local **1.19.3**. Made using AI (OpenAI Codex).
+
+In **Library tools > Preview safe diagnostics**, review the allowlisted report, then use **Copy diagnostics** or **Save diagnostics...**. Saving writes exactly the preview to a text file you choose; it does not upload the report or include activity logs, credentials, song names, peer names or local paths.
 
 Click a song column heading to sort the displayed queue; click again to reverse. **#** restores source order. Sorting does not change download priority or playlist order.
 

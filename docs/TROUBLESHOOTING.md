@@ -1,5 +1,10 @@
 # Troubleshooting
 
+## Temporary download storage needs space
+
+Transfers stage in the portable app's private `state/collections/` folder before moving into your music collection. Free space is checked in both locations before a batch starts. A message beginning **Temporary download storage** refers to the drive holding the app, which can differ from the music drive. Free space there, or move the entire closed portable app folder including `state/` to a writable drive with enough space. Keep `state/` to preserve settings, retries and resume history. Moving only the executable is insufficient.
+
+
 Made using AI (OpenAI Codex).
 
 ## Does an album link need Spotify setup?
